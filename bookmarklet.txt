@@ -1,1 +1,1 @@
-javascript:(function(){const s=document.createElement('script');s.src='https://tinyurl.com/26ouwf7p';document.head.appendChild(s);})();
+javascript:(function(){const s=document.createElement('script');s.src='https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js?t='+Date.now();document.head.appendChild(s);})();

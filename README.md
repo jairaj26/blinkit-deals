@@ -33,24 +33,22 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 
 ---
 
-### Option B: Manual Bookmark Creation (Short Link)
+### Option B: Manual Bookmark Creation (Direct GitHub)
 Create a new bookmark in your browser with the following URL:
 
 ```javascript
-javascript:(function(){const s=document.createElement('script');s.src='https://tinyurl.com/26ouwf7p';document.head.appendChild(s);})();
+javascript:(function(){const s=document.createElement('script');s.src='https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js?t='+Date.now();document.head.appendChild(s);})();
 ```
-
-> **Short link target:** Maps directly to `https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js`.
 
 ---
 
 ## 📱 Mobile Installation (Android Chrome & iOS Safari)
 
-Mobile browsers do not support drag-and-drop, but setup takes under 30 seconds using the ultra-short (117 chars) loader:
+Mobile browsers do not support drag-and-drop, but setup takes under 30 seconds using the direct GitHub loader:
 
 1. **Copy the code**:
    ```javascript
-   javascript:(function(){const s=document.createElement('script');s.src='https://tinyurl.com/26ouwf7p';document.head.appendChild(s);})();
+   javascript:(function(){const s=document.createElement('script');s.src='https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js?t='+Date.now();document.head.appendChild(s);})();
    ```
 2. **Bookmark any page**: In your mobile browser, tap menu (<kbd>⋮</kbd> or Share) and create a bookmark. Name it `Blinkit Deals`.
 3. **Edit the bookmark**: Open your bookmarks list, edit the bookmark you just created, delete the URL, and **paste** the JavaScript code above. Save changes.
