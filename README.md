@@ -33,29 +33,43 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 
 ---
 
-### Option B: Manual Bookmark Creation (Direct GitHub)
-Create a new bookmark in your browser with the following URL:
+### Option A: 1-Click Drag & Drop via Web Portal (Recommended)
+1. Open the installation portal:  
+   👉 **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)**
+2. Show your bookmarks bar (<kbd>Ctrl+Shift+B</kbd> on Windows or <kbd>Cmd+Shift+B</kbd> on Mac).
+3. Drag the green **"⚡ Blinkit Deals"** button directly to your Bookmarks bar.
+4. Navigate to **[blinkit.com](https://blinkit.com)** with your delivery location set.
+5. Click the bookmark anytime to open Deal Hunter!
 
-```javascript
-javascript:(function(){const s=document.createElement('script');s.src='https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js?t='+Date.now();document.head.appendChild(s);})();
-```
+---
+
+### Option B: Manual Bookmark Creation (Desktop or Mobile)
+Create a new bookmark in your browser and set its URL to the code inside [bookmarklet.txt](bookmarklet.txt):
+
+1. Copy the code from **[bookmarklet.txt](bookmarklet.txt)** (or tap "Copy Code" on the [Web Portal](https://jairaj26.github.io/blinkit-deals/)).
+2. Create a new bookmark named `Blinkit Deals`.
+3. Paste the code into the **URL** / **Location** field and save.
 
 ---
 
 ## 📱 Mobile Installation (Android Chrome & iOS Safari)
 
-Mobile browsers do not support drag-and-drop, but setup takes under 30 seconds using the direct GitHub loader:
+1. Open **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)** on your phone and tap **Copy Code**.
+2. Bookmark any page in your mobile browser and name it `Blinkit Deals`.
+3. Open your bookmarks manager, edit `Blinkit Deals`, delete the existing URL, and **paste** the copied code.
+4. Go to **[blinkit.com](https://blinkit.com)**.
+5. Tap your browser's address bar, type `Blinkit Deals`, and tap the bookmark suggestion from the dropdown. The Deal Hunter drawer slides open!
 
-1. **Copy the code**:
-   ```javascript
-   javascript:(function(){const s=document.createElement('script');s.src='https://raw.githubusercontent.com/jairaj26/blinkit-deals/main/blinkit-deals.js?t='+Date.now();document.head.appendChild(s);})();
-   ```
-2. **Bookmark any page**: In your mobile browser, tap menu (<kbd>⋮</kbd> or Share) and create a bookmark. Name it `Blinkit Deals`.
-3. **Edit the bookmark**: Open your bookmarks list, edit the bookmark you just created, delete the URL, and **paste** the JavaScript code above. Save changes.
-4. **How to run on Mobile**:
-   - Open **[blinkit.com](https://blinkit.com)**.
-   - Tap the browser **address bar**, type `Blinkit Deals`, and tap the bookmark suggestion.
-   - The Deal Hunter drawer will slide open immediately!
+---
+
+## 🛡️ Why Self-Contained? (Zero CSP Blocking)
+
+Blinkit enforces a strict **Content Security Policy (CSP)** and GitHub raw links send `Content-Type: text/plain` with `X-Content-Type-Options: nosniff`. Modern browsers strictly block dynamic `<script>` loading from untrusted domains.
+
+By packaging Deal Hunter into a self-contained inline bookmarklet (42KB, well within browser 2MB limits):
+- **Zero External Calls**: Executes directly within the page context.
+- **100% CSP-Immune**: Never blocked by script-src or connect-src headers.
+- **Instant Launch**: Starts immediately without waiting for CDN or GitHub response times.
 
 ---
 
