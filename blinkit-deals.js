@@ -1571,7 +1571,8 @@
       body.sort_type = sort;
       body.sort_order = sortIn === "asc" ? "ASC" : "DESC";
     }
-    const r = await fetch("https://blinkit.com/v1/layout/listing/paginated", {
+    const url = `https://blinkit.com/v1/layout/listing_widgets?collection_uuid=${encodeURIComponent(o.cat)}&collection_group_id=${encodeURIComponent(o.group)}&sort=${encodeURIComponent(sort || "bestsellers")}`;
+    const r = await fetch(url, {
       method: "POST",
       signal: o.signal,
       headers: { "content-type": "application/json", app_client: "consumer_web", lat: CTX.lat, lon: CTX.lon },
