@@ -49,7 +49,10 @@
             if (val && typeof val === "object") {
               if (val.lat && val.lon) storageCoords = val;
               else if (val.coords && val.coords.lat) storageCoords = val.coords;
-              if (val.locality || val.cityName) storageLocality = val.locality || val.cityName;
+              const candLoc = val.display_address || val.name || val.locality || val.cityName || val.area;
+              if (candLoc && typeof candLoc === "string" && !/^\d+$/.test(candLoc.trim())) {
+                storageLocality = candLoc.trim();
+              }
             }
           } catch (_) {}
         }
@@ -58,13 +61,52 @@
 
     const lat = preCoords.lat || cookie("gr_1_lat") || storageCoords.lat || "";
     const lon = preCoords.lon || cookie("gr_1_lon") || storageCoords.lon || "";
-    const locality = loc.locality || loc.cityName || cookie("gr_1_locality") || cookie("gr_1_city") || storageLocality || "";
+
+    // City ID numbers (like '3' for Bangalore) must be rejected
+    const isValidLocality = (str) => {
+      if (!str || typeof str !== "string") return false;
+      const s = str.trim();
+      return s.length >= 2 && !/^\d+$/.test(s);
+    };
+
+    const candidates = [
+      loc.display_address,
+      loc.name,
+      loc.locality_name,
+      loc.area_name,
+      loc.cityName,
+      loc.city_name,
+      loc.locality,
+      cookie("gr_1_display_address"),
+      cookie("gr_1_locality_name"),
+      cookie("gr_1_city_name"),
+      storageLocality,
+    ];
+
+    let locality = "";
+    for (const cand of candidates) {
+      if (isValidLocality(cand)) {
+        locality = cand.trim();
+        break;
+      }
+    }
+
+    if (!locality) {
+      try {
+        const domEl = document.querySelector('header [class*="location"], [class*="LocationBar"], [class*="location-box"]');
+        if (domEl && isValidLocality(domEl.textContent)) {
+          locality = domEl.textContent.trim().split("\n")[0].slice(0, 30);
+        }
+      } catch (_) {}
+    }
+
+    const chainId = String(pre.chainId || cookie("gr_1_chain_id") || "").trim();
 
     return {
       lat: String(lat || ""),
       lon: String(lon || ""),
-      locality: locality || (lat && lon ? "Selected Location" : "Location not set"),
-      chainId: pre.chainId || cookie("gr_1_chain_id") || "",
+      locality: locality || (lat && lon ? (chainId ? "Store " + chainId : "Selected Location") : "Location not set"),
+      chainId: chainId,
       detected: !!(lat && lon),
     };
   };
@@ -1998,10 +2040,13 @@ font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--
 [hidden]{display:none!important}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.launcher{position:fixed;right:20px;bottom:24px;width:48px;height:48px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 16px rgba(12,131,31,.4),0 2px 6px rgba(0,0,0,.15);transition:transform .15s ease,box-shadow .15s ease;z-index:2147483646;pointer-events:auto}
-.launcher:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(12,131,31,.5),0 2px 8px rgba(0,0,0,.2)}
+.launcher{position:fixed;right:20px;bottom:28px;width:50px;height:50px;border:2.5px solid #fff;border-radius:50%;background:#10b981;color:#fff;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 18px rgba(16,185,129,.55),0 2px 6px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease;z-index:2147483646;pointer-events:auto}
+.launcher:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(16,185,129,.7),0 3px 8px rgba(0,0,0,.25)}
 .launcher:active{transform:scale(.95)}
 .open .launcher{display:none}
+@media (max-width:640px){
+  .launcher{right:16px;bottom:84px;width:48px;height:48px}
+}
 .drawer{position:fixed;top:0;right:0;height:100vh;width:320px;max-width:100vw;background:var(--bg);border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(0,0,0,.1);display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .18s ease,visibility 0s .18s;z-index:9999;pointer-events:auto}
 .open .drawer{transform:none;visibility:visible;transition-delay:0s}
 header{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px 10px}
@@ -2033,7 +2078,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
   const HTML = `
 <div class="root" id="root">
   <button class="launcher" id="launcher" aria-label="Open Deal hunter" title="Deal hunter">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="7" cy="7" r="2.5" fill="currentColor"/><circle cx="17" cy="17" r="2.5" fill="currentColor"/></svg>
   </button>
   <aside class="drawer" role="dialog" aria-label="Deal hunter">
     <header>
@@ -2094,7 +2139,12 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
 
   function updateContextUI() {
     CTX = getDynamicContext();
-    $("ctx").textContent = CTX.locality + (CTX.chainId ? ", store " + CTX.chainId : "");
+    const loc = CTX.locality || "";
+    if (loc.toLowerCase().startsWith("store")) {
+      $("ctx").textContent = loc;
+    } else {
+      $("ctx").textContent = loc + (CTX.chainId ? ", store " + CTX.chainId : "");
+    }
     $("locwarn").hidden = CTX.detected;
   }
   updateContextUI();
