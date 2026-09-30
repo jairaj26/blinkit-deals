@@ -1694,27 +1694,45 @@
     while (!complete && pageIdx < MAX_SEARCH_PAGES) {
       if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-      const body = {
-        query: keyword,
-        page_index: pageIdx,
-        offset: pageIdx * 15,
-        limit: 15,
-        oos_visibility: "true",
-      };
+      const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(keyword)}&search_type=type_to_search&page_index=${pageIdx}&offset=${pageIdx * 15}&limit=15&oos_visibility=true`;
 
       let json = null;
       try {
-        const res = await fetch("https://blinkit.com/v1/layout/search", {
-          method: "POST",
+        let res = await fetch(searchUrl, {
+          method: "GET",
           signal,
           headers: {
-            "content-type": "application/json",
+            accept: "*/*",
             app_client: "consumer_web",
             lat: CTX.lat,
             lon: CTX.lon,
           },
-          body: JSON.stringify(body),
         });
+        if (res.status === 405 || !res.ok) {
+          const postRes = await fetch(searchUrl, {
+            method: "POST",
+            signal,
+            headers: {
+              "content-type": "application/json",
+              accept: "*/*",
+              app_client: "consumer_web",
+              lat: CTX.lat,
+              lon: CTX.lon,
+            },
+            body: JSON.stringify({
+              query: keyword,
+              q: keyword,
+              search_query: keyword,
+              page_index: pageIdx,
+              offset: pageIdx * 15,
+              limit: 15,
+              oos_visibility: "true",
+            }),
+          });
+          if (postRes.ok) {
+            res = postRes;
+          }
+        }
         if (!res.ok) throw new Error("HTTP " + res.status);
         json = await res.json();
       } catch (err) {
@@ -1758,7 +1776,7 @@
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 48px}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 20px 48px}
 h1{margin:0;font-size:18px;font-weight:650}
 .meta{margin-top:2px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .note{margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--soft);color:var(--muted)}
@@ -1788,9 +1806,9 @@ tr:hover td{background:var(--soft)}
 .price{font-weight:650}
 .off{display:inline-block;min-width:44px;padding:1px 6px;border-radius:4px;font-weight:600;text-align:center}
 .off.lo{color:var(--muted)}.off.mid{background:var(--tint);color:var(--accent)}.off.hi{background:var(--accent);color:var(--accent-ink)}
-.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding-top:6px}
-.card{border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff;transition:box-shadow .12s}
-.card:hover{box-shadow:0 3px 10px rgba(0,0,0,.06)}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:14px;padding-top:8px}
+.card{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;background:#fff;transition:box-shadow .12s;box-sizing:border-box}
+.card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .thumb{position:relative;width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;overflow:hidden}
 .thumb img{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;display:block}
 .thumb .ph{width:100%;height:100%;background:var(--soft)}
@@ -1802,8 +1820,8 @@ tr:hover td{background:var(--soft)}
 .cprice s{color:var(--muted);font-size:12px}
 .empty{padding:40px 0;text-align:center;color:var(--muted)}
 
-@media (max-width:960px) and (min-width:641px){
-  .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:1024px) and (min-width:641px){
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px}
 }
 
 @media (max-width:640px){
@@ -1812,7 +1830,7 @@ tr:hover td{background:var(--soft)}
   .meta{font-size:11px;gap:4px 8px}
   .bar{padding:8px 0;gap:6px}
   .search{flex:1 1 100%;max-width:100%;height:32px}
-  .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px}
   .card{padding:6px 4px;gap:4px;border-radius:6px}
   .thumb .off{left:4px;top:4px;font-size:10px;min-width:30px;padding:1px 3px}
   .cname{font-size:11.5px;line-height:1.25;min-height:29px}
@@ -2040,12 +2058,12 @@ font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--
 [hidden]{display:none!important}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.launcher{position:fixed;right:20px;bottom:28px;width:50px;height:50px;border:2.5px solid #fff;border-radius:50%;background:#10b981;color:#fff;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 18px rgba(16,185,129,.55),0 2px 6px rgba(0,0,0,.18);transition:transform .15s ease,box-shadow .15s ease;z-index:2147483646;pointer-events:auto}
-.launcher:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(16,185,129,.7),0 3px 8px rgba(0,0,0,.25)}
+.launcher{position:fixed;right:24px;bottom:88px;width:52px;height:52px;border:3px solid #ffffff;border-radius:50%;background:#10b981;color:#ffffff;cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 18px rgba(16,185,129,.55),0 2px 6px rgba(0,0,0,.22);transition:transform .15s ease,box-shadow .15s ease;z-index:2147483646;pointer-events:auto;box-sizing:border-box}
+.launcher:hover{transform:scale(1.08);box-shadow:0 6px 22px rgba(16,185,129,.7),0 3px 8px rgba(0,0,0,.28)}
 .launcher:active{transform:scale(.95)}
 .open .launcher{display:none}
 @media (max-width:640px){
-  .launcher{right:16px;bottom:84px;width:48px;height:48px}
+  .launcher{right:18px;bottom:96px;width:50px;height:50px;border-width:2.5px}
 }
 .drawer{position:fixed;top:0;right:0;height:100vh;width:320px;max-width:100vw;background:var(--bg);border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(0,0,0,.1);display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .18s ease,visibility 0s .18s;z-index:9999;pointer-events:auto}
 .open .drawer{transform:none;visibility:visible;transition-delay:0s}
@@ -2084,10 +2102,10 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     <header>
       <div><div class="title">Deal hunter</div><div class="sub" id="ctx"></div></div>
       <div class="hdr-actions">
-        <button class="icon" id="minimize" aria-label="Minimize" title="Minimize to icon">
+        <button class="icon" id="minimize" aria-label="Minimize" title="Minimize (keep icon)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <button class="icon" id="close" aria-label="Close" title="Close">
+        <button class="icon" id="close" aria-label="Close" title="Close Deal hunter completely">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
