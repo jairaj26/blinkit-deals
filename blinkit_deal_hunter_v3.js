@@ -11,7 +11,21 @@
   "use strict";
 
   const ROOT_ID = "bk-deal-hunter";
-  ["blinkit-sort-tester-container", ROOT_ID, "dh-overlay"].forEach((id) => document.getElementById(id)?.remove());
+  const existing = document.getElementById(ROOT_ID);
+  if (existing) {
+    const root = existing.shadowRoot && existing.shadowRoot.getElementById("root");
+    if (root) {
+      const wasOpen = root.classList.contains("open");
+      root.classList.toggle("open", !wasOpen);
+      if (!wasOpen) {
+        const kw = existing.shadowRoot.getElementById("kw-input");
+        if (kw) kw.focus();
+      }
+      return;
+    }
+    existing.remove();
+  }
+  ["blinkit-sort-tester-container", "dh-overlay"].forEach((id) => document.getElementById(id)?.remove());
 
   // ---------- Context (100% Dynamic Location from Blinkit) ----------
   const cookie = (n) => {
@@ -1732,7 +1746,7 @@ tr:hover td{background:var(--soft)}
 .price{font-weight:650}
 .off{display:inline-block;min-width:44px;padding:1px 6px;border-radius:4px;font-weight:600;text-align:center}
 .off.lo{color:var(--muted)}.off.mid{background:var(--tint);color:var(--accent)}.off.hi{background:var(--accent);color:var(--accent-ink)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding-top:6px}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding-top:6px}
 .card{border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff;transition:box-shadow .12s}
 .card:hover{box-shadow:0 3px 10px rgba(0,0,0,.06)}
 .thumb{position:relative;width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:6px;overflow:hidden}
@@ -1746,17 +1760,24 @@ tr:hover td{background:var(--soft)}
 .cprice s{color:var(--muted);font-size:12px}
 .empty{padding:40px 0;text-align:center;color:var(--muted)}
 
+@media (max-width:960px) and (min-width:641px){
+  .grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+}
+
 @media (max-width:640px){
-  .wrap{padding:12px 10px 40px}
+  .wrap{padding:12px 8px 40px}
   h1{font-size:16px}
   .meta{font-size:11px;gap:4px 8px}
   .bar{padding:8px 0;gap:6px}
   .search{flex:1 1 100%;max-width:100%;height:32px}
-  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .card{padding:6px;gap:4px}
-  .cname{font-size:12px;min-height:32px}
-  .cmeta{font-size:11px}
-  .cprice b{font-size:13px}
+  .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .card{padding:6px 4px;gap:4px;border-radius:6px}
+  .thumb .off{left:4px;top:4px;font-size:10px;min-width:30px;padding:1px 3px}
+  .cname{font-size:11.5px;line-height:1.25;min-height:29px}
+  .cmeta{font-size:10px}
+  .cprice{gap:4px}
+  .cprice b{font-size:12px}
+  .cprice s{font-size:10.5px}
   .hide-s{display:none!important}
 }
 `;
@@ -1970,23 +1991,25 @@ tr:hover td{background:var(--soft)}
 
   // ---------- Sidebar (Claude's Pure Light Theme UI) ----------
   const CSS = `
-:host{all:initial}
+:host{all:initial;pointer-events:none}
 *,*::before,*::after{box-sizing:border-box}
 .root{--bg:#fff;--fg:#171a17;--muted:#667064;--line:#e4e7e1;--soft:#f4f6f2;--accent:#0c831f;--accent-ink:#fff;--warn-bg:#fff6e0;--warn-fg:#7a4b00;--bad:#b3261e;
 font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--fg)}
 [hidden]{display:none!important}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.launcher{position:fixed;right:0;top:50%;transform:translateY(-50%);width:34px;height:44px;border:0;border-radius:10px 0 0 10px;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;box-shadow:-2px 2px 10px rgba(0,0,0,.18);transition:width .12s}
-.launcher:hover{width:40px}
+.launcher{position:fixed;right:20px;bottom:24px;width:48px;height:48px;border:0;border-radius:50%;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;box-shadow:0 4px 16px rgba(12,131,31,.4),0 2px 6px rgba(0,0,0,.15);transition:transform .15s ease,box-shadow .15s ease;z-index:2147483646;pointer-events:auto}
+.launcher:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(12,131,31,.5),0 2px 8px rgba(0,0,0,.2)}
+.launcher:active{transform:scale(.95)}
 .open .launcher{display:none}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:320px;max-width:100vw;background:var(--bg);border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(0,0,0,.1);display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .18s ease,visibility 0s .18s;z-index:9999}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:320px;max-width:100vw;background:var(--bg);border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(0,0,0,.1);display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .18s ease,visibility 0s .18s;z-index:9999;pointer-events:auto}
 .open .drawer{transform:none;visibility:visible;transition-delay:0s}
 header{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px 10px}
 .title{font-size:15px;font-weight:650}
 .sub{margin-top:1px;color:var(--muted);font-size:12px}
-.icon{width:28px;height:28px;border:0;border-radius:6px;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
-.icon:hover{background:var(--soft)}
+.hdr-actions{display:flex;gap:4px;align-items:center}
+.icon{width:28px;height:28px;border:0;border-radius:6px;background:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .12s,color .12s}
+.icon:hover{background:var(--soft);color:var(--fg)}
 .warn{margin:0 16px 10px;padding:8px 10px;border-radius:6px;background:var(--warn-bg);color:var(--warn-fg);font-size:12px}
 .body{flex:1;overflow:auto;padding:0 16px 12px;display:flex;flex-direction:column;gap:10px}
 label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px;font-weight:500}
@@ -2010,12 +2033,19 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
   const HTML = `
 <div class="root" id="root">
   <button class="launcher" id="launcher" aria-label="Open Deal hunter" title="Deal hunter">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg>
   </button>
   <aside class="drawer" role="dialog" aria-label="Deal hunter">
     <header>
       <div><div class="title">Deal hunter</div><div class="sub" id="ctx"></div></div>
-      <button class="icon" id="close" aria-label="Close">&times;</button>
+      <div class="hdr-actions">
+        <button class="icon" id="minimize" aria-label="Minimize" title="Minimize to icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="icon" id="close" aria-label="Close" title="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </header>
     <div class="warn" id="locwarn" hidden>⚠️ Delivery location not detected. Please select your delivery address on Blinkit so prices and stock match your store.</div>
     <div class="body">
@@ -2052,7 +2082,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
 
   const host = document.createElement("div");
   host.id = ROOT_ID;
-  host.style.cssText = "position:fixed;z-index:2147483647;top:0;right:0";
+  host.style.cssText = "position:fixed;z-index:2147483647;top:0;right:0;pointer-events:none";
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = "<style>" + CSS + "</style>" + HTML;
   document.body.appendChild(host);
@@ -2077,7 +2107,8 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     }
   };
   $("launcher").onclick = () => setOpen(true);
-  $("close").onclick = () => setOpen(false);
+  $("minimize").onclick = () => setOpen(false);
+  $("close").onclick = () => host.remove();
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
 
   function setStatus(msg, isError) {
@@ -2308,5 +2339,5 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     }
   };
 
-  setOpen(true);
+  setOpen(false);
 })();
