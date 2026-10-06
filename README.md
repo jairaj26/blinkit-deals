@@ -2,8 +2,8 @@
 
 A high-performance in-browser tool to scout hidden clearance deals, bulk discounts, and high-savings offers across **Blinkit**:
 
-1. **⚡ Deal Hunter (Browser Bookmarklet & Web Portal)**: Interactive client-side drawer to scout deals by **Keyword** (e.g. `sweets`, `snacks`, `amul`, `electronics`) or by **Category** across 28 super-categories.
-2. **📱 Responsive Deals Tab**: Clean 2-column mobile and desktop grid with enlarged product images, instant filters (25%+, 40%+, In stock), multi-column sorting, and 1-click CSV export.
+1. **⚡ Deal Hunter (Floating Launcher & Drawer)**: Discreet floating launcher button at bottom-right that opens an interactive drawer to scout deals by **Keyword** (e.g. `sweets`, `snacks`, `butter`, `amul`, `dry fruits`) or by **Category** across 28 super-categories.
+2. **📱 Responsive Deals Tab**: Clean 5-column desktop and 3-column mobile grid with clickable product cards, stacked 2-line discount badges (`54%` / `Off`), instant filters (25%+, 40%+, In stock), multi-column sorting, and 1-click CSV export on desktop.
 
 ---
 
@@ -11,19 +11,37 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 
 | Feature | Details |
 | :--- | :--- |
-| **Interface** | Native Blinkit light-theme drawer (`Search by Keyword` / `Search by Category` tabs) |
+| **Floating Launcher** | Discreet green circle button floating above the checkout button with Minimize & Close actions |
 | **Search by Keyword** | Crawls all pages of any search term with a courtesy sequential 500ms pause |
 | **Search by Category** | Full subcategory crawler across 28 pre-mapped super-categories |
-| **Tab Timing** | Result tab opens **only after** all items are completely fetched and sorted |
-| **Mobile Layout** | Responsive 2-column grid (`<= 640px`) with edge-to-edge square images |
+| **Clickable Cards** | Every product card and list item links directly to its product page on Blinkit |
+| **Stacked Discount Badges** | Clean 2-line badges (`54%` / `Off`) with color-coded discount tiers |
+| **Mobile Layout** | Responsive 3-column grid (`<= 640px`) with edge-to-edge images and a clean 2-row toolbar |
+| **Fit-to-Screen Table** | Mobile list view displays Product (60%), Price (22%), and Off (18%) with zero horizontal overflow |
 | **Rate-Limit Safety** | 500ms pacing + in-memory session cache (`searchCache`) keeps your IP 100% safe |
-| **Export Options** | 1-Click CSV export with clean RFC-4180 escaping for spreadsheet analysis |
+| **Export Options** | 1-Click CSV export on desktop with RFC-4180 escaping for spreadsheet analysis |
 
 ---
 
-## 🚀 Desktop Installation (Chrome, Edge, Brave, Safari, Firefox)
+## 📱 Mobile Installation (Android Chrome & iOS Safari) — Official Loader
 
-### Option A: Drag & Drop via Web Portal (Recommended)
+Mobile browsers enforce strict URL length limits on bookmarks. Deal Hunter provides an official ultra-compact (160 characters) GitHub Pages loader:
+
+```javascript
+javascript:(function(){const s=document.createElement('script');s.src='https://jairaj26.github.io/blinkit-deals/blinkit-deals.min.js?t='+Date.now();document.head.appendChild(s);})();
+```
+
+### 3-Step Mobile Setup:
+1. Open **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)** on your phone and tap **📋 Copy Mobile Bookmarklet**.
+2. Bookmark any webpage in your mobile browser and name it `Blinkit Deals`.
+3. Open your browser's Bookmarks list, tap **Edit** on `Blinkit Deals`, delete the existing URL, and **paste** the copied loader code.
+4. Navigate to **[blinkit.com](https://blinkit.com)**. Tap the address bar, type `Blinkit Deals`, and tap the bookmark suggestion. The floating launcher circle appears immediately!
+
+---
+
+## 💻 Desktop Installation (Chrome, Edge, Brave, Safari, Firefox)
+
+### Option A: 1-Click Drag & Drop (Recommended)
 1. Open the installation portal:  
    👉 **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)**
 2. Show your bookmarks bar (<kbd>Ctrl+Shift+B</kbd> on Windows or <kbd>Cmd+Shift+B</kbd> on Mac).
@@ -33,43 +51,11 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 
 ---
 
-### Option A: 1-Click Drag & Drop via Web Portal (Recommended)
-1. Open the installation portal:  
-   👉 **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)**
-2. Show your bookmarks bar (<kbd>Ctrl+Shift+B</kbd> on Windows or <kbd>Cmd+Shift+B</kbd> on Mac).
-3. Drag the green **"⚡ Blinkit Deals"** button directly to your Bookmarks bar.
-4. Navigate to **[blinkit.com](https://blinkit.com)** with your delivery location set.
-5. Click the bookmark anytime to open Deal Hunter!
-
----
-
-### Option B: Manual Bookmark Creation (Desktop or Mobile)
-Create a new bookmark in your browser and set its URL to the code inside [bookmarklet.txt](bookmarklet.txt):
-
-1. Copy the code from **[bookmarklet.txt](bookmarklet.txt)** (or tap "Copy Code" on the [Web Portal](https://jairaj26.github.io/blinkit-deals/)).
+### Option B: Standalone Self-Contained Code (Zero External Requests)
+For desktop users who prefer the entire script inlined into their bookmark without any external network fetches:
+1. Copy the code from **[bookmarklet.txt](bookmarklet.txt)** (or tap "Copy Code" under the Standalone section on the [Web Portal](https://jairaj26.github.io/blinkit-deals/)).
 2. Create a new bookmark named `Blinkit Deals`.
 3. Paste the code into the **URL** / **Location** field and save.
-
----
-
-## 📱 Mobile Installation (Android Chrome & iOS Safari)
-
-1. Open **[https://jairaj26.github.io/blinkit-deals/](https://jairaj26.github.io/blinkit-deals/)** on your phone and tap **Copy Code**.
-2. Bookmark any page in your mobile browser and name it `Blinkit Deals`.
-3. Open your bookmarks manager, edit `Blinkit Deals`, delete the existing URL, and **paste** the copied code.
-4. Go to **[blinkit.com](https://blinkit.com)**.
-5. Tap your browser's address bar, type `Blinkit Deals`, and tap the bookmark suggestion from the dropdown. The Deal Hunter drawer slides open!
-
----
-
-## 🛡️ Why Self-Contained? (Zero CSP Blocking)
-
-Blinkit enforces a strict **Content Security Policy (CSP)** and GitHub raw links send `Content-Type: text/plain` with `X-Content-Type-Options: nosniff`. Modern browsers strictly block dynamic `<script>` loading from untrusted domains.
-
-By packaging Deal Hunter into a self-contained inline bookmarklet (42KB, well within browser 2MB limits):
-- **Zero External Calls**: Executes directly within the page context.
-- **100% CSP-Immune**: Never blocked by script-src or connect-src headers.
-- **Instant Launch**: Starts immediately without waiting for CDN or GitHub response times.
 
 ---
 
@@ -77,7 +63,7 @@ By packaging Deal Hunter into a self-contained inline bookmarklet (42KB, well wi
 
 * **500ms Sequential Pacing**: Every page request waits for `sleep(500)` before requesting the next page. A 25-page crawl takes ~14 seconds (~1.7 req/sec), indistinguishable from human scrolling.
 * **In-Memory Session Cache**: Searching the same keyword or subcategory multiple times in one session retrieves results instantly from cache with **zero network calls**.
-* **Clean Async Pop-Up Management**: Avoids blank precursor tabs; results open strictly after data collection finishes.
+* **Clean Tab Management**: Results open strictly after data collection finishes.
 
 ---
 
