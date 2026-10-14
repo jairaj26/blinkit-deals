@@ -1619,7 +1619,7 @@
       oos_visibility: "true",
       page_index: String(pageIdx),
       products: "[]",
-      total_entities_processed: String(pageIdx),
+      total_entities_processed: String(offset),
       total_pagination_items: String(LIMIT * MAX_PAGES),
       applied_filters: null,
       sort: sortKey,
@@ -1636,7 +1636,7 @@
   }
 
   function shouldStopAtCutoff(pageItems) {
-    if (!pageItems || pageItems.length < LIMIT) return true;
+    if (!pageItems || pageItems.length === 0) return true;
     // Check the last row of the page (last 3 items)
     const lastRow = pageItems.slice(-3);
     const hasAboveCutoff = lastRow.some((it) => Math.round(it.discountPct) >= MIN_DISCOUNT_CUTOFF);
@@ -1754,6 +1754,49 @@
     }
 
     return { items, complete, partial, pagesScanned: pageIdx };
+  }
+
+  // ---------- 36 Top Categories Keywords for Mega Deals Scout ----------
+  const ALL_KEYWORDS = [
+    "atta", "rice", "dal", "ghee", "sweets", "chocolate", "cake", "snacks",
+    "dry fruits", "coffee", "dairy", "fruits", "vegetables", "grocery", "oil",
+    "masala", "instant", "ice cream", "munchies", "beverages", "tea", "eggs",
+    "meat", "skincare", "haircare", "bath", "oral", "makeup", "kitchen",
+    "bed", "home", "appliances", "detergents", "protein", "stationery", "premium"
+  ];
+
+  const QUICK_KEYWORDS = [
+    "Atta", "Rice", "Dal", "Ghee", "Sweets",
+    "Chocolate", "Cake", "Snacks", "Dry Fruits", "Coffee",
+    "Ice Cream", "Dairy", "Oil", "Skincare", "Beverages"
+  ];
+
+  async function fetchKeywordPage0(keyword, signal) {
+    const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(keyword)}&search_type=type_to_search&page_index=0&offset=0&limit=15&oos_visibility=true&sort=discount_desc`;
+    const res = await fetch(searchUrl, {
+      method: "POST",
+      signal,
+      headers: {
+        "content-type": "application/json",
+        accept: "*/*",
+        app_client: "consumer_web",
+        lat: CTX.lat,
+        lon: CTX.lon,
+      },
+      body: JSON.stringify({
+        query: keyword,
+        q: keyword,
+        search_query: keyword,
+        page_index: 0,
+        offset: 0,
+        limit: 15,
+        oos_visibility: "true",
+        sort: "discount_desc",
+      }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    return parseItems(json);
   }
 
   // ---------- Results page (runs inside the new tab) ----------
@@ -2120,6 +2163,16 @@ select:disabled,input:disabled{opacity:.55}
 .primary:disabled{opacity:.45;cursor:not-allowed}
 .link{padding:0;border:0;background:none;color:var(--accent);font-size:12px;text-decoration:underline;cursor:pointer}
 .hint{margin:0;color:var(--muted);font-size:12px}
+.divider{border-top:1px solid var(--line);margin:3px 0}
+.kw-quick{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.kw-quick-label{font-size:11.5px;font-weight:600;color:var(--muted)}
+.kw-chips{display:flex;flex-wrap:wrap;gap:5px}
+.kw-chip{height:24px;padding:0 8px;font-size:11.5px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--fg);cursor:pointer;white-space:nowrap;transition:all .12s;font-weight:500}
+.kw-chip:hover{background:var(--tint);border-color:var(--accent);color:var(--accent)}
+.kw-chip:disabled{opacity:.45;cursor:not-allowed}
+.mega-btn{height:34px;border:1px solid #10b981;border-radius:6px;background:#ecfdf5;color:#065f46;font-weight:650;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+.mega-btn:hover{background:#10b981;color:#fff;border-color:#10b981}
+.mega-btn:disabled{opacity:.45;cursor:not-allowed}
 footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
 .progress{height:3px;margin-bottom:8px;border-radius:2px;background:var(--soft);overflow:hidden}
 .progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
@@ -2157,6 +2210,21 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
         <label>Keyword<input id="kw-input" type="search" placeholder="e.g. sweets, snacks, amul, milk" autocomplete="off" /></label>
         <p class="hint">Sorts by discount on server &amp; fetches pages until discount drops below 59%.</p>
         <button class="primary" id="kw-go" style="width:100%">Find keyword deals</button>
+
+        <div class="divider"></div>
+
+        <div class="kw-quick">
+          <div class="kw-quick-label">⚡ Popular Deals (1-Click):</div>
+          <div class="kw-chips" id="kw-chips"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <button class="mega-btn" id="kw-all" type="button" style="width:100%">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Scan All Deals (36 Categories)
+        </button>
+        <p class="hint" style="margin-top:-4px">Fetches page 1 of 36 essential keywords sorted by discount and displays all deals.</p>
       </section>
 
       <!-- Category Deals Tab Panel -->
@@ -2227,6 +2295,8 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     $("sub").disabled = on || !sel.cat;
     $("t-kw").disabled = on;
     $("t-cat").disabled = on;
+    if ($("kw-all")) $("kw-all").disabled = on;
+    shadow.querySelectorAll(".kw-chip").forEach((b) => (b.disabled = on));
     $("cancel").hidden = !on;
     $("prog").hidden = !on;
     if (!on) $("bar").style.width = "0";
@@ -2375,7 +2445,10 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
   };
 
   // Keyword deals fetch: opens results ONLY AFTER fetch completes
-  async function executeKeywordSearch() {
+  async function executeKeywordSearch(customKw) {
+    if (customKw && typeof customKw === "string") {
+      $("kw-input").value = customKw;
+    }
     const q = ($("kw-input").value || "").trim();
     if (!q) {
       setStatus("Please enter a keyword to search.", true);
@@ -2434,7 +2507,102 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     } finally { setBusy(false); }
   }
 
-  $("kw-go").onclick = executeKeywordSearch;
+  // Multi-Category Mega Deal Scout: strictly page 1 of 36 essential categories
+  async function scanAllKeywords() {
+    if (busy) return;
+    updateContextUI();
+    if (!CTX.detected) {
+      setStatus("Please select your delivery address on Blinkit first.", true);
+      return;
+    }
+
+    ctrl = new AbortController();
+    setBusy(true);
+    setProgress(0.01);
+    setStatus("Scanning 36 essential categories (page 1 deals)...");
+
+    const seen = new Set();
+    const items = [];
+    let failed = 0;
+
+    try {
+      for (let i = 0; i < ALL_KEYWORDS.length; i++) {
+        if (ctrl.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        const kw = ALL_KEYWORDS[i];
+        setStatus("Scanning '" + kw + "' (" + (i + 1) + "/" + ALL_KEYWORDS.length + ") · " + items.length + " deals found...");
+        setProgress((i + 1) / ALL_KEYWORDS.length);
+
+        try {
+          const list = await fetchKeywordPage0(kw, ctrl.signal);
+          if (list && list.length) {
+            for (const it of list) {
+              if (it.discountPct > 0) {
+                const key = it.productId || (it.name + "|" + it.variant);
+                if (!seen.has(key)) {
+                  seen.add(key);
+                  items.push(it);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (err.name === "AbortError") throw err;
+          failed++;
+        }
+
+        if (i < ALL_KEYWORDS.length - 1) {
+          await sleep(120);
+        }
+      }
+
+      if (!items.length) {
+        throw new Error("No discounted products found across keywords.");
+      }
+
+      items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
+
+      const html = buildResultsHtml({
+        items,
+        complete: true,
+        partial: failed > 0,
+        cancelled: false,
+        meta: {
+          category: "⚡ All Deals Scout",
+          subcategory: items.length + " deals across " + ALL_KEYWORDS.length + " categories",
+          locality: CTX.locality,
+          chainId: CTX.chainId,
+          at: Date.now(),
+        },
+      });
+
+      const mode = displayResults(html);
+      setStatus("Done! Found " + items.length + " deals across " + ALL_KEYWORDS.length + " categories" + (mode === "tab" ? ". Opened in a new tab." : "."));
+    } catch (e) {
+      setStatus(e.name === "AbortError" ? "Scan cancelled." : e.message, e.name !== "AbortError");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Populate Quick Keyword Chips
+  const chipsContainer = $("kw-chips");
+  if (chipsContainer) {
+    chipsContainer.innerHTML = "";
+    QUICK_KEYWORDS.forEach((kw) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "kw-chip";
+      btn.textContent = kw;
+      btn.onclick = () => {
+        if (busy) return;
+        executeKeywordSearch(kw);
+      };
+      chipsContainer.appendChild(btn);
+    });
+  }
+
+  if ($("kw-all")) $("kw-all").onclick = scanAllKeywords;
+  $("kw-go").onclick = () => executeKeywordSearch();
   $("kw-input").onkeydown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
