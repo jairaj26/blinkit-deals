@@ -369,15 +369,16 @@ async function build() {
 <body>
   <div class="container">
     <div class="header">
-      <div class="badge">⚡ Official Release · v3.4</div>
+      <div class="badge">⚡ Official Release · v3.5</div>
       <h1>Blinkit Deal Hunter</h1>
       <p class="subtitle">Scout clearance discounts, search any keyword & sort products by highest real discount.</p>
       <div class="tag-row">
         <span class="tag-pill">🟢 Light-Green Launcher</span>
+        <span class="tag-pill">⚡ Server-Side Sort</span>
+        <span class="tag-pill">🛑 59% Early-Exit Cutoff</span>
         <span class="tag-pill">📱 Official Mobile Loader</span>
         <span class="tag-pill">🖼️ 5/3 Col Responsive Grid</span>
         <span class="tag-pill">🔗 Clickable Product Cards</span>
-        <span class="tag-pill">🏷️ Stacked 2-Line Discounts</span>
       </div>
     </div>
 
@@ -434,8 +435,8 @@ async function build() {
         <p>Discreet launcher positioned safely above the checkout button. Minimize or close anytime.</p>
       </div>
       <div class="feature-card">
-        <h4>🔍 Keyword & Category Crawler</h4>
-        <p>Crawl all pages for any keyword (e.g. <i>butter</i>, <i>chocolate</i>, <i>dry fruits</i>) or browse 28 categories.</p>
+        <h4>⚡ Server-Side Sort & 59% Cutoff</h4>
+        <p>Fast backend discount sorting (<code>discount_desc</code>) with automatic early exit below 59% discount.</p>
       </div>
       <div class="feature-card">
         <h4>🛍️ Clickable Cards with 2-Line Badges</h4>

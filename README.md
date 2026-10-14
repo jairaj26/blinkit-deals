@@ -12,13 +12,13 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 | Feature | Details |
 | :--- | :--- |
 | **Floating Launcher** | Discreet green circle button floating above the checkout button with Minimize & Close actions |
-| **Search by Keyword** | Crawls all pages of any search term with a courtesy sequential 500ms pause |
-| **Search by Category** | Full subcategory crawler across 28 pre-mapped super-categories |
+| **Search by Keyword** | Server-side `discount_desc` sorting with early exit once discounts drop below 59% |
+| **Search by Category** | Server-side `discount_desc` sorting across 28 categories with 59% early-exit cutoff |
 | **Clickable Cards** | Every product card and list item links directly to its product page on Blinkit |
 | **Stacked Discount Badges** | Clean 2-line badges (`54%` / `Off`) with color-coded discount tiers |
 | **Mobile Layout** | Responsive 3-column grid (`<= 640px`) with edge-to-edge images and a clean 2-row toolbar |
 | **Fit-to-Screen Table** | Mobile list view displays Product (60%), Price (22%), and Off (18%) with zero horizontal overflow |
-| **Rate-Limit Safety** | 500ms pacing + in-memory session cache (`searchCache`) keeps your IP 100% safe |
+| **Rate-Limit Safety** | Sequential pacing + session cache (`searchCache`) keeps your IP 100% safe |
 | **Export Options** | 1-Click CSV export on desktop with RFC-4180 escaping for spreadsheet analysis |
 
 ---

@@ -1545,7 +1545,8 @@
 ];;
 
   // ---------- Helpers ----------
-  const LIMIT = 15, CONCURRENCY = 3, MAX_PAGES = 200; // safety ceiling
+  const LIMIT = 15, MAX_PAGES = 200; // safety ceiling
+  const MIN_DISCOUNT_CUTOFF = 59; // Stop fetching next pages once discount drops below 59%
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const tx = (v) => (v && typeof v === "object" ? v.text || "" : v == null ? "" : String(v));
   const toNum = (s) => { const n = parseFloat(String(s).replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
@@ -1604,7 +1605,7 @@
   }
 
   // ---------- Category Listing API ----------
-  async function listingPage(o, offset, pageIdx, sort, sortIn) {
+  async function listingPage(o, offset, pageIdx, sortKey = "discount_desc") {
     const body = {
       offset: String(offset),
       limit: String(LIMIT),
@@ -1621,13 +1622,9 @@
       total_entities_processed: String(pageIdx),
       total_pagination_items: String(LIMIT * MAX_PAGES),
       applied_filters: null,
+      sort: sortKey,
     };
-    if (sort) {
-      body.sort = { field: sort, order: sortIn === "asc" ? 0 : 1 };
-      body.sort_type = sort;
-      body.sort_order = sortIn === "asc" ? "ASC" : "DESC";
-    }
-    const url = `https://blinkit.com/v1/layout/listing_widgets?collection_uuid=${encodeURIComponent(o.cat)}&collection_group_id=${encodeURIComponent(o.group)}&sort=${encodeURIComponent(sort || "bestsellers")}`;
+    const url = `https://blinkit.com/v1/layout/listing_widgets?collection_uuid=${encodeURIComponent(o.cat)}&collection_group_id=${encodeURIComponent(o.group)}&sort=${encodeURIComponent(sortKey)}`;
     const r = await fetch(url, {
       method: "POST",
       signal: o.signal,
@@ -1638,49 +1635,53 @@
     return r.json();
   }
 
+  function shouldStopAtCutoff(pageItems) {
+    if (!pageItems || pageItems.length < LIMIT) return true;
+    // Check the last row of the page (last 3 items)
+    const lastRow = pageItems.slice(-3);
+    const hasAboveCutoff = lastRow.some((it) => Math.round(it.discountPct) >= MIN_DISCOUNT_CUTOFF);
+    return !hasAboveCutoff;
+  }
+
   // ---------- Category Crawler ----------
   async function crawl(o, onProgress) {
     const seen = new Set();
     const items = [];
     let pageIdx = 0, offset = 0, failedPages = 0, complete = false;
 
-    // Page 0 initial
-    const p0 = await listingPage(o, 0, 0);
-    const it0 = parseItems(p0);
-    it0.forEach((it) => {
-      const key = it.productId || (it.name + "|" + it.variant);
-      if (!seen.has(key)) { seen.add(key); items.push(it); }
-    });
-    pageIdx = 1;
-    offset = items.length;
-    onProgress(items.length, 1);
-    if (!it0.length || it0.length < LIMIT) return { items, complete: true, partial: false };
-
-    // Parallel batches
     while (pageIdx < MAX_PAGES) {
-      const batchIndices = [];
-      for (let i = 0; i < CONCURRENCY && pageIdx + i < MAX_PAGES; i++) batchIndices.push(pageIdx + i);
-      const jobs = batchIndices.map((idx, i) =>
-        listingPage(o, offset + i * LIMIT, idx)
-          .then((res) => ({ ok: true, items: parseItems(res), idx }))
-          .catch((err) => ({ ok: false, err, idx }))
-      );
-      const results = await Promise.all(jobs);
-      let newCount = 0, hitEnd = false;
-      for (const res of results) {
-        if (!res.ok) { failedPages++; continue; }
-        for (const it of res.items) {
-          const key = it.productId || (it.name + "|" + it.variant);
-          if (!seen.has(key)) { seen.add(key); items.push(it); newCount++; }
-        }
-        if (!res.items.length || res.items.length < LIMIT) hitEnd = true;
+      if (o.signal && o.signal.aborted) throw new DOMException("Aborted", "AbortError");
+      let resJson;
+      try {
+        resJson = await listingPage(o, offset, pageIdx, "discount_desc");
+      } catch (err) {
+        if (err.name === "AbortError") throw err;
+        failedPages++;
+        break;
       }
-      pageIdx += batchIndices.length;
-      offset += batchIndices.length * LIMIT;
+
+      const pageItems = parseItems(resJson);
+      let newCount = 0;
+      for (const it of pageItems) {
+        const key = it.productId || (it.name + "|" + it.variant);
+        if (!seen.has(key)) {
+          seen.add(key);
+          items.push(it);
+          newCount++;
+        }
+      }
+
+      pageIdx++;
+      offset += LIMIT;
       onProgress(items.length, pageIdx);
-      if (hitEnd || newCount === 0) { complete = true; break; }
+
+      if (newCount === 0 || shouldStopAtCutoff(pageItems)) {
+        complete = true;
+        break;
+      }
       await sleep(150);
     }
+
     return { items, complete: complete || pageIdx >= MAX_PAGES, partial: failedPages > 0 };
   }
 
@@ -1694,45 +1695,31 @@
     while (!complete && pageIdx < MAX_SEARCH_PAGES) {
       if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-      const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(keyword)}&search_type=type_to_search&page_index=${pageIdx}&offset=${pageIdx * 15}&limit=15&oos_visibility=true`;
+      const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(keyword)}&search_type=type_to_search&page_index=${pageIdx}&offset=${pageIdx * 15}&limit=15&oos_visibility=true&sort=discount_desc`;
 
       let json = null;
       try {
-        let res = await fetch(searchUrl, {
-          method: "GET",
+        const res = await fetch(searchUrl, {
+          method: "POST",
           signal,
           headers: {
+            "content-type": "application/json",
             accept: "*/*",
             app_client: "consumer_web",
             lat: CTX.lat,
             lon: CTX.lon,
           },
+          body: JSON.stringify({
+            query: keyword,
+            q: keyword,
+            search_query: keyword,
+            page_index: pageIdx,
+            offset: pageIdx * 15,
+            limit: 15,
+            oos_visibility: "true",
+            sort: "discount_desc",
+          }),
         });
-        if (res.status === 405 || !res.ok) {
-          const postRes = await fetch(searchUrl, {
-            method: "POST",
-            signal,
-            headers: {
-              "content-type": "application/json",
-              accept: "*/*",
-              app_client: "consumer_web",
-              lat: CTX.lat,
-              lon: CTX.lon,
-            },
-            body: JSON.stringify({
-              query: keyword,
-              q: keyword,
-              search_query: keyword,
-              page_index: pageIdx,
-              offset: pageIdx * 15,
-              limit: 15,
-              oos_visibility: "true",
-            }),
-          });
-          if (postRes.ok) {
-            res = postRes;
-          }
-        }
         if (!res.ok) throw new Error("HTTP " + res.status);
         json = await res.json();
       } catch (err) {
@@ -1754,7 +1741,7 @@
         });
       }
 
-      if (!list || list.length === 0 || items.length === beforeCount) {
+      if (!list || list.length === 0 || items.length === beforeCount || shouldStopAtCutoff(list)) {
         complete = true;
       }
 
@@ -2168,7 +2155,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
       <!-- Keyword Search Tab Panel -->
       <section id="p-kw" style="display:flex;flex-direction:column;gap:10px">
         <label>Keyword<input id="kw-input" type="search" placeholder="e.g. sweets, snacks, amul, milk" autocomplete="off" /></label>
-        <p class="hint">Fetches all pages matching this keyword (500ms pause between calls).</p>
+        <p class="hint">Sorts by discount on server &amp; fetches pages until discount drops below 59%.</p>
         <button class="primary" id="kw-go" style="width:100%">Find keyword deals</button>
       </section>
 
@@ -2176,7 +2163,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
       <section id="p-cat" hidden style="display:flex;flex-direction:column;gap:10px">
         <label>Category<select id="cat"></select></label>
         <label>Subcategory<select id="sub" disabled><option>Choose a category first</option></select></label>
-        <p class="hint">Fetches every page of the subcategory, then sorts by discount.</p>
+        <p class="hint">Sorts subcategory by discount &amp; fetches until discount drops below 59%.</p>
         <button class="primary" id="go" style="width:100%" disabled>Find best deals</button>
       </section>
     </div>
