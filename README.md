@@ -1,9 +1,9 @@
-# ⚡ Blinkit Deal Hunter & Scout Suite
+# ⚡ Blinkit Deal Hunter & Scout Suite (v3.5)
 
 A high-performance in-browser tool to scout hidden clearance deals, bulk discounts, and high-savings offers across **Blinkit**:
 
-1. **⚡ Deal Hunter (Floating Launcher & Drawer)**: Discreet floating launcher button at bottom-right that opens an interactive drawer to scout deals by **Keyword** (e.g. `sweets`, `snacks`, `butter`, `amul`, `dry fruits`) or by **Category** across 28 super-categories.
-2. **📱 Responsive Deals Tab**: Clean 5-column desktop and 3-column mobile grid with clickable product cards, stacked 2-line discount badges (`54%` / `Off`), instant filters (25%+, 40%+, In stock), multi-column sorting, and 1-click CSV export on desktop.
+1. **⚡ Deal Hunter (Floating Launcher & Drawer)**: Discreet floating launcher button at bottom-right that opens an interactive drawer to scout deals by **Keyword** (with 15 1-click popular deal chips), by **Category** across 28 super-categories, or via the **⚡ Scan All Deals (36 Categories)** Mega Scout.
+2. **📱 Responsive Deals Tab**: Clean 5-column desktop and 3-column mobile grid with clickable product cards, stacked 2-line discount badges (`54%` / `Off`), instant quick-filters (25%+, 40%+, 60%+, In stock), multi-column sorting, and 1-click CSV export on desktop.
 
 ---
 
@@ -12,13 +12,17 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 | Feature | Details |
 | :--- | :--- |
 | **Floating Launcher** | Discreet green circle button floating above the checkout button with Minimize & Close actions |
+| **⚡ 36-Category Mega Scout** | 1-Click scout strictly fetching Page 1 of 36 essential categories, deduplicating and sorting all top deals |
+| **1-Click Popular Chips** | 15 quick deal pills (`Atta`, `Rice`, `Dal`, `Ghee`, `Sweets`, `Chocolate`, etc.) for instant 1-click search |
 | **Search by Keyword** | Server-side `discount_desc` sorting with early exit once discounts drop below 59% |
 | **Search by Category** | Server-side `discount_desc` sorting across 28 categories with 59% early-exit cutoff |
+| **60%+ Clearance Chip** | Dedicated 60%+ filter chip in the results toolbar targeting deep clearance items |
+| **Early Cancel Recovery** | Stopping mid-scan gracefully preserves and displays all deals collected so far instead of discarding them |
 | **Clickable Cards** | Every product card and list item links directly to its product page on Blinkit |
 | **Stacked Discount Badges** | Clean 2-line badges (`54%` / `Off`) with color-coded discount tiers |
 | **Mobile Layout** | Responsive 3-column grid (`<= 640px`) with edge-to-edge images and a clean 2-row toolbar |
 | **Fit-to-Screen Table** | Mobile list view displays Product (60%), Price (22%), and Off (18%) with zero horizontal overflow |
-| **Rate-Limit Safety** | Sequential pacing + session cache (`searchCache`) keeps your IP 100% safe |
+| **Rate-Limit Safety & Caching** | Sequential pacing + dual session caches (`searchCache` & `catDealsCache`) for instant reload and zero wasted calls |
 | **Export Options** | 1-Click CSV export on desktop with RFC-4180 escaping for spreadsheet analysis |
 
 ---
@@ -62,7 +66,8 @@ For desktop users who prefer the entire script inlined into their bookmark witho
 ## 🛡️ Anti-Rate-Limit & Performance Architecture
 
 * **500ms Sequential Pacing**: Every page request waits for `sleep(500)` before requesting the next page. A 25-page crawl takes ~14 seconds (~1.7 req/sec), indistinguishable from human scrolling.
-* **In-Memory Session Cache**: Searching the same keyword or subcategory multiple times in one session retrieves results instantly from cache with **zero network calls**.
+* **In-Memory Session Caches (`searchCache` & `catDealsCache`)**: Searching the same keyword or subcategory multiple times in one session retrieves results instantly from memory with **zero network calls**.
+* **Early Cancel Recovery**: Cancelling a search or multi-category scan midway preserves all items collected so far with a clear summary badge.
 * **Clean Tab Management**: Results open strictly after data collection finishes.
 
 ---

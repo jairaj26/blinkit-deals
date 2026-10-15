@@ -376,6 +376,8 @@ async function build() {
         <span class="tag-pill">🟢 Light-Green Launcher</span>
         <span class="tag-pill">⚡ Server-Side Sort</span>
         <span class="tag-pill">🛑 59% Early-Exit Cutoff</span>
+        <span class="tag-pill">⚡ 36-Category Mega Scout</span>
+        <span class="tag-pill">🎯 15 1-Click Popular Chips</span>
         <span class="tag-pill">📱 Official Mobile Loader</span>
         <span class="tag-pill">🖼️ 5/3 Col Responsive Grid</span>
         <span class="tag-pill">🔗 Clickable Product Cards</span>
@@ -431,12 +433,20 @@ async function build() {
     <!-- Feature Highlights -->
     <div class="features-grid">
       <div class="feature-card">
-        <h4>🟢 Floating Launcher & Minimize</h4>
-        <p>Discreet launcher positioned safely above the checkout button. Minimize or close anytime.</p>
+        <h4>⚡ 36-Category Mega Scout</h4>
+        <p>1-Click button fetching Page 1 of 36 essential categories, deduplicating and sorting all top deals by discount.</p>
+      </div>
+      <div class="feature-card">
+        <h4>🎯 15 1-Click Popular Chips</h4>
+        <p>Instant search pills for Atta, Rice, Dal, Ghee, Sweets, Chocolate, Snacks, Dry Fruits, Coffee, Dairy, and more.</p>
       </div>
       <div class="feature-card">
         <h4>⚡ Server-Side Sort & 59% Cutoff</h4>
         <p>Fast backend discount sorting (<code>discount_desc</code>) with automatic early exit below 59% discount.</p>
+      </div>
+      <div class="feature-card">
+        <h4>🛡️ Dual Cache & Cancel Recovery</h4>
+        <p>Session caching (<code>searchCache</code> &amp; <code>catDealsCache</code>) plus instant display of deals if cancelled mid-scan.</p>
       </div>
       <div class="feature-card">
         <h4>🛍️ Clickable Cards with 2-Line Badges</h4>
@@ -444,7 +454,7 @@ async function build() {
       </div>
       <div class="feature-card">
         <h4>📱 Streamlined Mobile Experience</h4>
-        <p>3-column mobile grid, 2-row toolbar, and fit-to-screen list view with no horizontal overflow.</p>
+        <p>3-column mobile grid, 2-row toolbar with 60%+ filter chip, and fit-to-screen list view.</p>
       </div>
     </div>
 
