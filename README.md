@@ -13,6 +13,7 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 | :--- | :--- |
 | **Floating Launcher** | Discreet green circle button floating above the checkout button with Minimize & Close actions |
 | **⚡ 36-Category Mega Scout** | 1-Click scout strictly fetching Page 1 of 36 essential categories, deduplicating and sorting all top deals |
+| **Category Filter** | Dynamic dropdown filter in the results toolbar to isolate deals by category with item counts |
 | **1-Click Popular Chips** | 15 quick deal pills (`Atta`, `Rice`, `Dal`, `Ghee`, `Sweets`, `Chocolate`, etc.) for instant 1-click search |
 | **Search by Keyword** | Server-side `discount_desc` sorting with early exit once discounts drop below 59% |
 | **Search by Category** | Server-side `discount_desc` sorting across 28 categories with 59% early-exit cutoff |

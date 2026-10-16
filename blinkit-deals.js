@@ -1556,6 +1556,7 @@
   const toNum = (s) => { const n = parseFloat(String(s).replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? n : 0; };
   const round2 = (n) => Math.round(n * 100) / 100;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const cap = (s) => String(s || "").split(" ").map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : "")).join(" ");
 
   // Session caches to prevent duplicate calls
   const searchCache = new Map();
@@ -1575,10 +1576,13 @@
     if (Array.isArray(d.product_badges) && d.product_badges.length) badge = tx(d.product_badges[0]);
     else if (d.product_badge_type) badge = String(d.product_badge_type);
     const img = (d.image && (d.image.url || d.image)) || (ci && ci.image_url) || "";
+    const cat = tx(d.category_name) || tx(d.category) || tx(d.l1_category) || tx(d.sub_category) || (ci && (tx(ci.category_name) || tx(ci.l1_category) || tx(ci.category))) || "";
 
     return {
       productId: String(d.product_id != null ? d.product_id : (ci && ci.product_id) || ""),
       name,
+      category: cat,
+      categories: cat ? [cat] : [],
       brand: tx(d.brand_name) || d.brand || (ci && ci.brand) || "",
       variant: tx(d.variant) || (ci && ci.unit) || "",
       mrp,
@@ -1958,17 +1962,45 @@ tr:hover td{background:var(--soft)}
     };
     const inr = (n) => "\u20B9" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
     // Default view: GRID
-    const st = { q: "", minDisc: 0, inStock: false, key: "discountPct", dir: -1, view: "grid" };
+    const st = { q: "", cat: "", minDisc: 0, inStock: false, key: "discountPct", dir: -1, view: "grid" };
     const SORTS = [
       ["discountPct:-1", "Highest discount"], ["savings:-1", "Biggest savings"], ["price:1", "Price, low to high"],
       ["price:-1", "Price, high to low"], ["rating:-1", "Top rated"], ["name:1", "Name, A to Z"],
     ];
 
+    // Extract categories
+    const catCounts = new Map();
+    D.items.forEach((it) => {
+      const cats = (it.categories && it.categories.length) ? it.categories : (it.category ? [it.category] : []);
+      cats.forEach((c) => {
+        catCounts.set(c, (catCounts.get(c) || 0) + 1);
+      });
+    });
+    const uniqueCats = Array.from(catCounts.keys()).sort((a, b) => a.localeCompare(b));
+    let catSel = null;
+    if (uniqueCats.length > 1) {
+      catSel = h("select", {
+        class: "sel sel-cat",
+        "aria-label": "Filter by Category",
+        onchange: () => {
+          st.cat = catSel.value;
+          render();
+        }
+      },
+        h("option", { value: "", text: "All Categories (" + D.items.length + ")" }),
+        uniqueCats.map((c) => h("option", { value: c, text: c + " (" + catCounts.get(c) + ")" }))
+      );
+    }
+
     function visible() {
       const q = st.q.trim().toLowerCase();
-      const list = D.items.filter((it) =>
-        (!q || (it.name + " " + it.brand + " " + it.variant).toLowerCase().includes(q)) &&
-        it.discountPct >= st.minDisc && (!st.inStock || !it.soldOut));
+      const list = D.items.filter((it) => {
+        const matchesQ = !q || (it.name + " " + it.brand + " " + it.variant + " " + (it.category || "")).toLowerCase().includes(q);
+        const matchesDisc = it.discountPct >= st.minDisc;
+        const matchesStock = !st.inStock || !it.soldOut;
+        const matchesCat = !st.cat || it.category === st.cat || (it.categories && it.categories.includes(st.cat));
+        return matchesQ && matchesDisc && matchesStock && matchesCat;
+      });
       list.sort((a, b) => {
         let av = a[st.key], bv = b[st.key];
         if (av == null || bv == null) return av == null ? (bv == null ? 0 : 1) : -1;
@@ -2015,7 +2047,11 @@ tr:hover td{background:var(--soft)}
           pic(it),
           h("div", { class: "pinfo" },
             h("div", { class: "pn", text: it.name }),
-            h("div", { class: "ps" }, h("span", { text: it.variant }), h("span", { text: it.brand }), it.soldOut ? h("span", { class: "tag", text: "Sold out" }) : null)))),
+            h("div", { class: "ps" },
+              h("span", { text: it.variant }),
+              h("span", { text: it.brand }),
+              it.category ? h("span", { class: "tag", text: it.category }) : null,
+              it.soldOut ? h("span", { class: "tag", text: "Sold out" }) : null)))),
         h("td", { class: "col-mrp hide-s" }, it.discountPct > 0 ? h("span", { class: "mrp", text: inr(it.mrp) }) : ""),
         h("td", { class: "col-price price", text: inr(it.price) }),
         h("td", { class: "col-off" }, off(it)),
@@ -2028,7 +2064,7 @@ tr:hover td{background:var(--soft)}
       return h("div", { class: "grid" }, rows.map((it) => h("a", { class: "card" + (it.soldOut ? " oos" : ""), href: getProductUrl(it), target: "_blank", rel: "noopener noreferrer" },
         h("div", { class: "thumb" }, pic(it), it.discountPct > 0 ? off(it) : null),
         h("div", { class: "cname", text: it.name }),
-        h("div", { class: "cmeta", text: it.soldOut ? "Sold out" : it.variant }),
+        h("div", { class: "cmeta", text: (it.soldOut ? "Sold out" : it.variant) + (it.category ? " \u00B7 " + it.category : "") }),
         h("div", { class: "cprice" }, h("b", { text: inr(it.price) }), it.discountPct > 0 ? h("s", { text: inr(it.mrp) }) : null))));
     }
 
@@ -2038,8 +2074,8 @@ tr:hover td{background:var(--soft)}
         if (/^[=+\-@]/.test(s)) s = "'" + s;
         return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
       };
-      const lines = [["Name", "Brand", "Variant", "MRP", "Price", "Discount %", "Savings", "In stock", "Rating"]]
-        .concat(visible().map((i) => [i.name, i.brand, i.variant, i.mrp, i.price, i.discountPct, i.savings, i.soldOut ? "no" : "yes", i.rating]))
+      const lines = [["Name", "Category", "Brand", "Variant", "MRP", "Price", "Discount %", "Savings", "In stock", "Rating"]]
+        .concat(visible().map((i) => [i.name, i.category || "", i.brand, i.variant, i.mrp, i.price, i.discountPct, i.savings, i.soldOut ? "no" : "yes", i.rating]))
         .map((r) => r.map(q).join(","));
       const a = h("a", { href: URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" })), download: "blinkit-deals.csv" });
       document.body.append(a); a.click(); a.remove();
@@ -2075,7 +2111,7 @@ tr:hover td{background:var(--soft)}
       notes.map((n) => h("div", { class: "note", text: n })),
       h("div", { class: "bar" },
         h("div", { class: "bar-row r1" }, search, c25, c40, c60),
-        h("div", { class: "bar-row r2" }, cStock, sel, h("div", { class: "seg" }, vGrid, vList), h("button", { class: "chip btn-csv", text: "Export CSV", onclick: exportCsv }))),
+        h("div", { class: "bar-row r2" }, cStock, catSel, sel, h("div", { class: "seg" }, vGrid, vList), h("button", { class: "chip btn-csv", text: "Export CSV", onclick: exportCsv }))),
       count, content));
 
     function render() {
@@ -2084,6 +2120,7 @@ tr:hover td{background:var(--soft)}
       cStock.setAttribute("aria-pressed", st.inStock);
       vGrid.setAttribute("aria-pressed", st.view === "grid"); vList.setAttribute("aria-pressed", st.view === "list");
       sel.value = SORTS.some(([v]) => v === st.key + ":" + st.dir) ? st.key + ":" + st.dir : "";
+      if (catSel) catSel.value = st.cat || "";
       count.textContent = "Showing " + rows.length + " of " + D.items.length;
       content.replaceChildren(rows.length ? (st.view === "grid" ? gridView(rows) : listView(rows)) : h("div", { class: "empty", text: "No products match these filters." }));
     }
@@ -2494,6 +2531,10 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
         }
         throw new Error("No products returned. Try another subcategory.");
       }
+      r.items.forEach((it) => {
+        if (!it.category) it.category = sel.sub.name;
+        if (!it.categories || !it.categories.length) it.categories = [it.category];
+      });
       r.items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
       if (!r.cancelled) {
         catDealsCache.set(catKey, { items: r.items, complete: r.complete, partial: r.partial });
@@ -2560,6 +2601,10 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
         throw new Error("No products returned for '" + q + "'. Try another keyword.");
       }
 
+      r.items.forEach((it) => {
+        if (!it.category) it.category = cap(q);
+        if (!it.categories || !it.categories.length) it.categories = [it.category];
+      });
       r.items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
 
       // Save to cache ONLY IF NOT CANCELLED
@@ -2626,12 +2671,21 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
         }
 
         if (list && list.length) {
+          const catName = cap(kw);
           for (const it of list) {
             if (it.discountPct > 0) {
               const key = it.productId || (it.name + "|" + it.variant);
               if (!seen.has(key)) {
                 seen.add(key);
+                it.category = catName;
+                it.categories = [catName];
                 items.push(it);
+              } else {
+                const existing = items.find((x) => (x.productId || (x.name + "|" + x.variant)) === key);
+                if (existing) {
+                  if (!existing.categories) existing.categories = [existing.category || catName];
+                  if (!existing.categories.includes(catName)) existing.categories.push(catName);
+                }
               }
             }
           }
