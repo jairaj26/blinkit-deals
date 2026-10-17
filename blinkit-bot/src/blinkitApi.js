@@ -108,6 +108,30 @@ function parseItems(json) {
   return out;
 }
 
+function parseCookieString(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  let cleaned = raw.trim();
+  if (cleaned.toLowerCase().startsWith('cookie:')) {
+    cleaned = cleaned.slice(7).trim();
+  }
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1);
+  }
+  const pairs = cleaned.split(';').map((s) => s.trim()).filter(Boolean);
+  const cookies = [];
+  for (const pair of pairs) {
+    const eq = pair.indexOf('=');
+    if (eq > 0) {
+      const name = pair.slice(0, eq).trim();
+      const value = pair.slice(eq + 1).trim();
+      if (name) {
+        cookies.push({ name, value });
+      }
+    }
+  }
+  return cookies;
+}
+
 async function fetchKeywordPage0(keyword, config) {
   const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(keyword)}&search_type=type_to_search&page_index=0&offset=0&limit=15&oos_visibility=true&sort=discount_desc`;
 
@@ -124,7 +148,12 @@ async function fetchKeywordPage0(keyword, config) {
   };
 
   if (config.cookie) {
-    headers.cookie = config.cookie;
+    const parsed = parseCookieString(config.cookie);
+    if (parsed.length) {
+      headers.cookie = parsed.map((c) => `${c.name}=${c.value}`).join('; ');
+    } else {
+      headers.cookie = config.cookie;
+    }
   }
 
   const res = await fetch(searchUrl, {
@@ -169,6 +198,7 @@ async function fetchViaBrowser(config = {}) {
       '--disable-dev-shm-usage',
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
+      '--disable-blink-features=AutomationControlled',
       '--window-size=1280,800'
     ]
   });
@@ -178,6 +208,16 @@ async function fetchViaBrowser(config = {}) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1280, height: 800 });
 
+    // Anti-bot stealth overrides
+    await page.evaluateOnNewDocument(() => {
+      try {
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      } catch (_) {}
+      try {
+        window.chrome = { runtime: {} };
+      } catch (_) {}
+    });
+
     const lat = parseFloat(config.lat || '13.0388595');
     const lon = parseFloat(config.lon || '77.60125099999999');
 
@@ -186,14 +226,44 @@ async function fetchViaBrowser(config = {}) {
     await context.overridePermissions('https://blinkit.com', ['geolocation']);
     await page.setGeolocation({ latitude: lat, longitude: lon });
 
+    // Inject user cookies into browser context if provided
+    const parsedCookies = parseCookieString(config.cookie);
+    const cookiesToSet = parsedCookies.map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: '.blinkit.com',
+      path: '/'
+    }));
+
+    // Ensure lat/lon cookies are always included
+    if (!cookiesToSet.some((c) => c.name === 'gr_1_lat')) {
+      cookiesToSet.push({ name: 'gr_1_lat', value: String(lat), domain: '.blinkit.com', path: '/' });
+    }
+    if (!cookiesToSet.some((c) => c.name === 'gr_1_lon')) {
+      cookiesToSet.push({ name: 'gr_1_lon', value: String(lon), domain: '.blinkit.com', path: '/' });
+    }
+
+    if (cookiesToSet.length > 0) {
+      console.log(`[BlinkitApi] Injected ${cookiesToSet.length} cookies into browser session.`);
+      await page.setCookie(...cookiesToSet);
+    }
+
     // Navigate to initialize session and bypass Cloudflare challenge
     console.log('[BlinkitApi] Initializing Blinkit session in browser...');
-    await page.goto('https://blinkit.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    try {
+      await page.goto('https://blinkit.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch (e) {
+      console.warn(`[BlinkitApi] Initial page load warning: ${e.message}`);
+    }
+
     await sleep(2000);
+    const pageTitle = await page.title().catch(() => 'unknown');
+    console.log(`[BlinkitApi] Browser session ready at "${pageTitle}" (${page.url()})`);
 
     console.log(`[BlinkitApi] Scanning ${ALL_KEYWORDS.length} categories inside browser session...`);
-    const results = await page.evaluate(async (keywords, latStr, lonStr) => {
+    const { allResults, sampleError } = await page.evaluate(async (keywords, latStr, lonStr) => {
       const allResults = [];
+      let sampleError = null;
       for (let i = 0; i < keywords.length; i++) {
         const kw = keywords[i];
         const searchUrl = `https://blinkit.com/v1/layout/search?q=${encodeURIComponent(kw)}&search_type=type_to_search&page_index=0&offset=0&limit=15&oos_visibility=true&sort=discount_desc`;
@@ -222,14 +292,27 @@ async function fetchViaBrowser(config = {}) {
           if (res.ok) {
             const json = await res.json();
             allResults.push({ keyword: kw, json });
+          } else {
+            if (!sampleError) {
+              const text = await res.text().catch(() => '');
+              sampleError = `Keyword "${kw}" returned HTTP ${res.status}: ${text.slice(0, 200)}`;
+            }
           }
-        } catch (_) {}
+        } catch (err) {
+          if (!sampleError) {
+            sampleError = `Keyword "${kw}" fetch threw: ${err.message || String(err)}`;
+          }
+        }
         await new Promise((r) => setTimeout(r, 120));
       }
-      return allResults;
+      return { allResults, sampleError };
     }, ALL_KEYWORDS, String(lat), String(lon));
 
-    return results;
+    if (sampleError) {
+      console.warn(`[BlinkitApi] Browser evaluation note: ${sampleError}`);
+    }
+
+    return allResults;
   } finally {
     await browser.close();
   }
