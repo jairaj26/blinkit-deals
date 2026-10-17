@@ -71,6 +71,34 @@ For desktop users who prefer the entire script inlined into their bookmark witho
 * **Early Cancel Recovery**: Cancelling a search or multi-category scan midway preserves all items collected so far with a clear summary badge.
 * **Clean Tab Management**: Results open strictly after data collection finishes.
 
+## 🤖 GitHub Actions Hourly Telegram Bot (80%+ Clearance Deals)
+
+An automated background worker that runs every hour via GitHub Actions, scans all 36 Blinkit categories, deduplicates items against previous alerts, and notifies your Telegram channel/chat with rich product cards.
+
+### Features
+* **Hourly Cron Schedule**: Runs every hour at `:01` past the hour IST (`cron: '31 * * * *'`).
+* **High-Discount Filter**: Scrapes strictly deals with **$\ge 80\%$ OFF** (configurable).
+* **Smart Deduplication**: If an item has the same discount on the second fetch, it is ignored so you are never spammed.
+* **24-Hour $\to$ 7-Day Suppression**: If an item remains at the exact same price for 24 hours (a full day), alerts for that item are silenced for **7 days**.
+* **Dual-Mode Engine**: Fast direct REST queries with automatic headless browser (Puppeteer) fallback to bypass Cloudflare protection on GitHub Actions datacenter IPs.
+* **Persistent Cache**: Uses `actions/cache` to preserve deal state across runs.
+
+### GitHub Repository Secrets Setup
+Navigate to **GitHub > Settings > Secrets and variables > Actions** and add:
+
+| Secret Name | Description | Example / Details |
+| :--- | :--- | :--- |
+| `TELEGRAM_BOT_TOKEN` | BotFather token | `123456789:ABCdefGhIJKlmNoPQRstuvWXyz` |
+| `TELEGRAM_CHAT_ID` | Your Chat ID or Channel Username | `@my_deals_channel` or `1234567890` |
+| `BLINKIT_LAT` | Delivery location latitude | `13.0388595` |
+| `BLINKIT_LON` | Delivery location longitude | `77.60125099999999` |
+| `BLINKIT_COOKIE` | *(Optional)* Browser cookie string | `gr_1_lat=13.038...; gr_1_lon=77.601...;` |
+| `MIN_DISCOUNT` | *(Optional, default: 80)* | `80` |
+
+### Manual Execution & Testing
+Go to **GitHub > Actions > Blinkit Hourly 80%+ Deal Hunter > Run workflow**:
+* You can test anytime with custom discount thresholds (e.g. `70%`), enable `dry_run: true` to test without sending Telegram alerts, or set `force_send: true` to bypass deduplication.
+
 ---
 
 ## 📄 License

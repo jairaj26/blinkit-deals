@@ -1,0 +1,22 @@
+{
+  "name": "blinkit-deal-bot",
+  "version": "1.0.0",
+  "description": "Hourly Blinkit 80%+ Deal Hunter & Telegram Alert Bot",
+  "main": "src/runner.js",
+  "scripts": {
+    "start": "node src/runner.js",
+    "test": "node src/runner.js --dry-run"
+  },
+  "keywords": [
+    "blinkit",
+    "telegram-bot",
+    "deals",
+    "discounts"
+  ],
+  "author": "jairaj26",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "puppeteer-core": "^25.14.0"
+  }
+}

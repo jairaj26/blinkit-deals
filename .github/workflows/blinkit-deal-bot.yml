@@ -1,0 +1,71 @@
+name: Blinkit Hourly 80%+ Deal Hunter
+
+on:
+  schedule:
+    # Runs every hour at minute 31 UTC (= minute 01 of every hour IST)
+    - cron: '31 * * * *'
+  workflow_dispatch:
+    inputs:
+      min_discount:
+        description: 'Minimum discount percentage (default: 80)'
+        required: false
+        default: '80'
+      force_send:
+        description: 'Force send all matching deals (skip deduplication)'
+        type: boolean
+        required: false
+        default: false
+      dry_run:
+        description: 'Dry run only (scrape and verify without sending Telegram alerts)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  hunt:
+    name: Blinkit Deal Hunter
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        working-directory: blinkit-bot
+        run: npm install --production
+
+      - name: Restore Deal Cache
+        uses: actions/cache/restore@v4
+        with:
+          path: blinkit-bot/data
+          key: blinkit-deal-cache-${{ github.run_id }}
+          restore-keys: |
+            blinkit-deal-cache-
+
+      - name: Run Hourly Deal Hunter
+        working-directory: blinkit-bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BLINKIT_LAT: ${{ secrets.BLINKIT_LAT }}
+          BLINKIT_LON: ${{ secrets.BLINKIT_LON }}
+          BLINKIT_COOKIE: ${{ secrets.BLINKIT_COOKIE }}
+          MIN_DISCOUNT: ${{ inputs.min_discount || secrets.MIN_DISCOUNT || '80' }}
+          FORCE_SEND: ${{ inputs.force_send || 'false' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          echo "Starting Blinkit Deal Hunter Bot..."
+          node src/runner.js
+
+      - name: Save Deal Cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: blinkit-bot/data
+          key: blinkit-deal-cache-${{ github.run_id }}
