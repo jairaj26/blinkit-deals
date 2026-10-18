@@ -1,8 +1,8 @@
-# ⚡ Blinkit Deal Hunter & Scout Suite (v3.5)
+# ⚡ Blinkit Deal Hunter & Scout Suite (v3.6)
 
 A high-performance in-browser tool to scout hidden clearance deals, bulk discounts, and high-savings offers across **Blinkit**:
 
-1. **⚡ Deal Hunter (Floating Launcher & Drawer)**: Discreet floating launcher button at bottom-right that opens an interactive drawer to scout deals by **Keyword** (with 15 1-click popular deal chips), by **Category** across 28 super-categories, or via the **⚡ Scan All Deals (36 Categories)** Mega Scout.
+1. **⚡ Deal Hunter (Floating Launcher & Drawer)**: Discreet floating launcher button at bottom-right that opens an interactive drawer to scout deals by **Keyword** (with 15 1-click popular deal chips), by **Category** across 28 categories with subcategory multi-select and 1-click Select/Clear All, or via the **⚡ Scan All Deals (36 Categories)** Mega Scout.
 2. **📱 Responsive Deals Tab**: Clean 5-column desktop and 3-column mobile grid with clickable product cards, stacked 2-line discount badges (`54%` / `Off`), instant quick-filters (25%+, 40%+, 60%+, In stock), multi-column sorting, and 1-click CSV export on desktop.
 
 ---
@@ -13,6 +13,8 @@ A high-performance in-browser tool to scout hidden clearance deals, bulk discoun
 | :--- | :--- |
 | **Floating Launcher** | Discreet green circle button floating above the checkout button with Minimize & Close actions |
 | **⚡ 36-Category Mega Scout** | 1-Click scout strictly fetching Page 1 of 36 essential categories, deduplicating and sorting all top deals |
+| **Category Multi-Select** | Select a Category to auto-select all subcategories (e.g. Baby Care ~11 subcategories); easily toggle, Select All or Clear All |
+| **Page 1 Subcategory Deals** | Fetches Page 1 sorted by discount of all selected subcategories, deduplicating and aggregating deals |
 | **Category Filter** | Dynamic dropdown filter in the results toolbar to isolate deals by category with item counts |
 | **1-Click Popular Chips** | 15 quick deal pills (`Atta`, `Rice`, `Dal`, `Ghee`, `Sweets`, `Chocolate`, etc.) for instant 1-click search |
 | **Search by Keyword** | Server-side `discount_desc` sorting with early exit once discounts drop below 59% |

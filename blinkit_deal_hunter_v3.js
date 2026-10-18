@@ -2252,6 +2252,17 @@ select:disabled,input:disabled{opacity:.55}
 .mega-btn{height:34px;border:1px solid #10b981;border-radius:6px;background:#ecfdf5;color:#065f46;font-weight:650;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
 .mega-btn:hover{background:#10b981;color:#fff;border-color:#10b981}
 .mega-btn:disabled{opacity:.45;cursor:not-allowed}
+.sub-hdr{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);font-weight:600}
+.sub-actions{display:flex;gap:8px}
+.sub-actions button{background:none;border:0;color:var(--accent);font-size:11.5px;padding:0;cursor:pointer;text-decoration:underline;font-weight:500}
+.sub-actions button:hover{color:var(--accent)}
+.sub-actions button:disabled{opacity:.45;cursor:not-allowed;text-decoration:none}
+.sub-list{max-height:185px;overflow-y:auto;border:1px solid var(--line);border-radius:6px;padding:5px;background:var(--soft);display:flex;flex-direction:column;gap:4px}
+.sub-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--fg);user-select:none;background:var(--bg);border:1px solid var(--line);transition:background .1s,border-color .1s}
+.sub-item:hover{background:var(--tint);border-color:var(--accent)}
+.sub-item input[type=checkbox]{margin:0;width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+.sub-item span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-placeholder{padding:16px 8px;text-align:center;color:var(--muted);font-size:12px}
 footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
 .progress{height:3px;margin-bottom:8px;border-radius:2px;background:var(--soft);overflow:hidden}
 .progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
@@ -2309,9 +2320,20 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
       <!-- Category Deals Tab Panel -->
       <section id="p-cat" hidden style="display:flex;flex-direction:column;gap:10px">
         <label>Category<select id="cat"></select></label>
-        <label>Subcategory<select id="sub" disabled><option>Choose a category first</option></select></label>
-        <p class="hint">Sorts subcategory by discount &amp; fetches until discount drops below 59%.</p>
-        <button class="primary" id="go" style="width:100%" disabled>Find best deals</button>
+        <div id="sub-wrap" style="display:flex;flex-direction:column;gap:6px">
+          <div class="sub-hdr">
+            <span id="sub-count">Subcategories</span>
+            <div class="sub-actions" id="sub-actions" hidden>
+              <button type="button" id="sub-sel-all">Select all</button>
+              <button type="button" id="sub-clr-all">Clear all</button>
+            </div>
+          </div>
+          <div class="sub-list" id="sub-list">
+            <div class="sub-placeholder" id="sub-empty">Choose a category first</div>
+          </div>
+        </div>
+        <p class="hint">Fetches Page 1 sorted by discount of each selected subcategory.</p>
+        <button class="primary" id="go" style="width:100%" disabled>Find category deals</button>
       </section>
     </div>
     <footer>
@@ -2333,7 +2355,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
   document.body.appendChild(host);
   const $ = (id) => shadow.getElementById(id);
 
-  const sel = { cat: null, sub: null };
+  const sel = { cat: null, groups: [], selectedGroups: new Set() };
   const groupCache = new Map();
   let busy = false, ctrl = null;
 
@@ -2367,11 +2389,13 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
   }
   function setBusy(on) {
     busy = on;
-    $("go").disabled = on || !sel.sub;
+    $("go").disabled = on || sel.selectedGroups.size === 0;
     $("kw-go").disabled = on;
     $("kw-input").disabled = on;
     $("cat").disabled = on;
-    $("sub").disabled = on || !sel.cat;
+    shadow.querySelectorAll("#sub-list input[type=checkbox]").forEach((cb) => (cb.disabled = on));
+    $("sub-sel-all").disabled = on;
+    $("sub-clr-all").disabled = on;
     $("t-kw").disabled = on;
     $("t-cat").disabled = on;
     if ($("kw-all")) $("kw-all").disabled = on;
@@ -2425,30 +2449,76 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     });
   })();
 
-  function fillSubs(groups) {
-    const s = $("sub");
-    s.innerHTML = "";
-    const first = document.createElement("option");
-    first.value = ""; first.textContent = "Choose a subcategory (" + groups.length + ")";
-    s.appendChild(first);
-    groups.forEach((g, i) => {
-      const o = document.createElement("option");
-      o.value = i; o.textContent = g.name;
-      s.appendChild(o);
-    });
-    s.disabled = false;
-    s.onchange = () => {
-      sel.sub = s.value === "" ? null : groups[+s.value];
-      setBusy(false);
-      setStatus(sel.sub ? "Ready." : "Pick a subcategory.");
-    };
+  function updateSubUI() {
+    const selCount = sel.selectedGroups.size;
+    const totalCount = sel.groups.length;
+    $("sub-count").textContent = totalCount ? "Subcategories (" + selCount + "/" + totalCount + ")" : "Subcategories";
+    $("go").disabled = busy || selCount === 0;
+    $("go").textContent = selCount > 0 ? "Find category deals (" + selCount + ")" : "Select at least 1 subcategory";
+    if (selCount > 0) {
+      setStatus("Selected " + selCount + " subcategories. Ready to scan.");
+    } else if (totalCount > 0) {
+      setStatus("Please select at least 1 subcategory.", true);
+    }
   }
+
+  function fillSubs(groups) {
+    sel.groups = groups || [];
+    // Auto-select all subcategories by default
+    sel.selectedGroups = new Set((groups || []).map((g) => String(g.id)));
+
+    const list = $("sub-list");
+    list.innerHTML = "";
+
+    if (!groups || !groups.length) {
+      list.innerHTML = '<div class="sub-placeholder">No subcategories found</div>';
+      $("sub-actions").hidden = true;
+      updateSubUI();
+      return;
+    }
+
+    groups.forEach((g) => {
+      const item = document.createElement("label");
+      item.className = "sub-item";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = String(g.id);
+      cb.checked = true;
+      cb.onchange = () => {
+        if (cb.checked) sel.selectedGroups.add(String(g.id));
+        else sel.selectedGroups.delete(String(g.id));
+        updateSubUI();
+      };
+      const span = document.createElement("span");
+      span.textContent = g.name;
+      span.title = g.name;
+      item.append(cb, span);
+      list.appendChild(item);
+    });
+
+    $("sub-actions").hidden = false;
+    updateSubUI();
+  }
+
+  $("sub-sel-all").onclick = () => {
+    if (busy || !sel.groups.length) return;
+    sel.selectedGroups = new Set(sel.groups.map((g) => String(g.id)));
+    shadow.querySelectorAll("#sub-list input[type=checkbox]").forEach((cb) => (cb.checked = true));
+    updateSubUI();
+  };
+
+  $("sub-clr-all").onclick = () => {
+    if (busy || !sel.groups.length) return;
+    sel.selectedGroups.clear();
+    shadow.querySelectorAll("#sub-list input[type=checkbox]").forEach((cb) => (cb.checked = false));
+    updateSubUI();
+  };
 
   async function loadSubs(cat) {
     if (groupCache.has(cat.uuid)) { fillSubs(groupCache.get(cat.uuid)); return; }
-    const s = $("sub");
-    s.disabled = true;
-    s.innerHTML = "<option>Loading subcategories\u2026</option>";
+    const list = $("sub-list");
+    list.innerHTML = '<div class="sub-placeholder">Loading subcategories\u2026</div>';
+    $("sub-actions").hidden = true;
     let groups = [];
     try {
       const c = new AbortController();
@@ -2477,12 +2547,16 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
 
   $("cat").onchange = () => {
     const v = $("cat").value;
-    sel.sub = null;
+    sel.groups = [];
+    sel.selectedGroups.clear();
     setBusy(false);
     if (v === "") {
       sel.cat = null;
-      $("sub").innerHTML = "<option>Choose a category first</option>";
-      $("sub").disabled = true;
+      $("sub-list").innerHTML = '<div class="sub-placeholder">Choose a category first</div>';
+      $("sub-actions").hidden = true;
+      $("sub-count").textContent = "Subcategories";
+      $("go").disabled = true;
+      $("go").textContent = "Find category deals";
       setStatus("Pick a category to start.");
       return;
     }
@@ -2491,63 +2565,142 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     loadSubs(sel.cat);
   };
 
-  function request(extra) {
-    ctrl = new AbortController();
-    return Object.assign({ cat: sel.cat.uuid, group: sel.sub.id, oos: "true", signal: ctrl.signal }, extra);
+  async function fetchSubPage1(catUuid, sub, signal) {
+    const cacheKey = `${catUuid}:${sub.id}`;
+    if (catDealsCache.has(cacheKey)) {
+      return catDealsCache.get(cacheKey);
+    }
+    const body = {
+      offset: "0",
+      limit: String(LIMIT),
+      collection_filters: "[]",
+      collection_group_id: String(sub.id),
+      collection_properties: JSON.stringify([{ id: 4179, name: "NEXT_PRODUCT_RECOMMENDATION", value: "true" }]),
+      collection_uuid: catUuid,
+      exclude_combos: "false",
+      last_snippet_type: "product_card_snippet_type_2",
+      last_widget_type: "product_container",
+      oos_visibility: "true",
+      page_index: "0",
+      products: "[]",
+      total_entities_processed: "0",
+      total_pagination_items: String(LIMIT),
+      applied_filters: null,
+      sort: "discount_desc",
+    };
+    const url = `https://blinkit.com/v1/layout/listing_widgets?collection_uuid=${encodeURIComponent(catUuid)}&collection_group_id=${encodeURIComponent(sub.id)}&sort=discount_desc`;
+    const r = await fetch(url, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json", app_client: "consumer_web", lat: CTX.lat, lon: CTX.lon },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const json = await r.json();
+    const items = parseItems(json);
+    catDealsCache.set(cacheKey, items);
+    return items;
   }
 
-  // Category deals fetch: opens results ONLY AFTER fetch completes
+  // Category deals fetch: fetches Page 1 of each selected subcategory
   $("go").onclick = async () => {
-    if (busy || !sel.sub) return;
+    if (busy || !sel.cat || sel.selectedGroups.size === 0) return;
     updateContextUI();
     if (!CTX.detected) {
       setStatus("Please select your delivery address on Blinkit first.", true);
       return;
     }
 
-    // Check session cache first
-    const catKey = `${sel.cat.uuid}:${sel.sub.id}`;
-    if (catDealsCache.has(catKey)) {
-      const cached = catDealsCache.get(catKey);
-      const html = buildResultsHtml({
-        items: cached.items, complete: cached.complete, partial: cached.partial, cancelled: false,
-        meta: { category: sel.cat.name, subcategory: sel.sub.name, locality: CTX.locality, chainId: CTX.chainId, at: Date.now() },
-      });
-      const mode = displayResults(html);
-      setStatus("Loaded " + cached.items.length + " products from session cache" + (mode === "tab" ? ". Opened in a new tab." : "."));
+    const targetSubs = sel.groups.filter((g) => sel.selectedGroups.has(String(g.id)));
+    if (!targetSubs.length) {
+      setStatus("Please select at least 1 subcategory.", true);
       return;
     }
 
-    let o;
-    try { o = request({}); } catch (e) { setStatus(e.message, true); return; }
+    ctrl = new AbortController();
     setBusy(true);
-    setStatus("Scanning subcategory\u2026");
-    try {
-      const r = await crawl(o, (n, p) => { setProgress(1 - 1 / (1 + p / 8)); setStatus("Scanned " + n + " products, " + p + " pages\u2026"); });
-      if (!r.items.length) {
-        if (r.cancelled) {
-          setStatus("Cancelled.");
-          return;
+    setStatus("Scanning " + targetSubs.length + " subcategories...");
+    setProgress(0.02);
+
+    const seen = new Set();
+    const items = [];
+    let failedCount = 0;
+    let cancelled = false;
+
+    for (let i = 0; i < targetSubs.length; i++) {
+      if (ctrl.signal.aborted) {
+        cancelled = true;
+        break;
+      }
+      const sub = targetSubs[i];
+      setProgress((i + 0.1) / targetSubs.length);
+      setStatus("Scanning (" + (i + 1) + "/" + targetSubs.length + "): " + sub.name + "...");
+
+      try {
+        const subItems = await fetchSubPage1(sel.cat.uuid, sub, ctrl.signal);
+        if (subItems && subItems.length) {
+          subItems.forEach((it) => {
+            const copy = Object.assign({}, it);
+            const key = copy.productId || (copy.name + "|" + copy.variant);
+            const subName = sub.name;
+            if (!seen.has(key)) {
+              seen.add(key);
+              copy.category = subName;
+              copy.categories = [subName];
+              items.push(copy);
+            } else {
+              const existing = items.find((x) => (x.productId || (x.name + "|" + x.variant)) === key);
+              if (existing) {
+                if (!existing.categories) existing.categories = [existing.category || subName];
+                if (!existing.categories.includes(subName)) existing.categories.push(subName);
+              }
+            }
+          });
         }
-        throw new Error("No products returned. Try another subcategory.");
+      } catch (err) {
+        if (err.name === "AbortError" || ctrl.signal.aborted) {
+          cancelled = true;
+          break;
+        }
+        failedCount++;
       }
-      r.items.forEach((it) => {
-        if (!it.category) it.category = sel.sub.name;
-        if (!it.categories || !it.categories.length) it.categories = [it.category];
-      });
-      r.items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
-      if (!r.cancelled) {
-        catDealsCache.set(catKey, { items: r.items, complete: r.complete, partial: r.partial });
+
+      if (i < targetSubs.length - 1 && !ctrl.signal.aborted) {
+        await sleep(120);
       }
-      const html = buildResultsHtml({
-        items: r.items, complete: r.complete, partial: r.partial, cancelled: r.cancelled,
-        meta: { category: sel.cat.name, subcategory: sel.sub.name, locality: CTX.locality, chainId: CTX.chainId, at: Date.now() },
-      });
-      const mode = displayResults(html);
-      setStatus((r.cancelled ? "Stopped early. Found " : "Done! Found ") + r.items.length + " products" + (mode === "tab" ? ". Opened in a new tab." : "."));
-    } catch (e) {
-      setStatus(e.name === "AbortError" ? "Cancelled." : e.message, e.name !== "AbortError");
-    } finally { setBusy(false); }
+    }
+
+    setProgress(1);
+
+    if (!items.length) {
+      setBusy(false);
+      if (cancelled) {
+        setStatus("Cancelled.");
+        return;
+      }
+      setStatus("No products found in selected subcategories.", true);
+      return;
+    }
+
+    items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
+
+    const html = buildResultsHtml({
+      items,
+      complete: !cancelled && failedCount === 0,
+      partial: failedCount > 0,
+      cancelled,
+      meta: {
+        category: sel.cat.name,
+        subcategory: targetSubs.length + " subcategories (" + items.length + " products)",
+        locality: CTX.locality,
+        chainId: CTX.chainId,
+        at: Date.now(),
+      },
+    });
+
+    const mode = displayResults(html);
+    setStatus((cancelled ? "Stopped early. Found " : "Done! Found ") + items.length + " products across " + targetSubs.length + " subcategories" + (mode === "tab" ? ". Opened in a new tab." : "."));
+    setBusy(false);
   };
 
   // Keyword deals fetch: opens results ONLY AFTER fetch completes
