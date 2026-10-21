@@ -7,7 +7,9 @@
  */
 
 const fs = require('fs');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const toNum = (s) => {
@@ -188,10 +190,11 @@ async function fetchViaBrowser(config = {}) {
     throw new Error('No Chrome or Chromium browser executable found on this machine for headless mode.');
   }
 
-  console.log(`[BlinkitApi] Launching headless browser (${executablePath})...`);
+  const isHeadless = process.env.HEADLESS === 'true';
+  console.log(`[BlinkitApi] Launching browser (headless: ${isHeadless}, path: ${executablePath})...`);
   const browser = await puppeteer.launch({
     executablePath,
-    headless: 'new',
+    headless: isHeadless ? 'new' : false,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -199,14 +202,14 @@ async function fetchViaBrowser(config = {}) {
       '--disable-accelerated-2d-canvas',
       '--disable-gpu',
       '--disable-blink-features=AutomationControlled',
-      '--window-size=1280,800'
+      '--window-size=1280,960'
     ]
   });
 
   try {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1280, height: 800 });
+    await page.setViewport({ width: 1280, height: 960 });
 
     // Anti-bot stealth overrides
     await page.evaluateOnNewDocument(() => {
@@ -251,14 +254,46 @@ async function fetchViaBrowser(config = {}) {
     // Navigate to initialize session and bypass Cloudflare challenge
     console.log('[BlinkitApi] Initializing Blinkit session in browser...');
     try {
-      await page.goto('https://blinkit.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.goto('https://blinkit.com/', { waitUntil: 'domcontentloaded', timeout: 45000 });
     } catch (e) {
       console.warn(`[BlinkitApi] Initial page load warning: ${e.message}`);
     }
 
+    // Check if Cloudflare "Just a moment..." challenge is present
+    let pageTitle = await page.title().catch(() => 'unknown');
+    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
+      console.log(`[BlinkitApi] Cloudflare challenge detected ("${pageTitle}"). Waiting for challenge to resolve...`);
+      try {
+        // Attempt to click turnstile box if present in frame
+        const frameEl = await page.$('iframe[src*="challenges.cloudflare.com"]');
+        if (frameEl) {
+          const frame = await frameEl.contentFrame();
+          if (frame) {
+            const box = await frame.$('input[type="checkbox"], .ctp-checkbox-label, #challenge-stage');
+            if (box) {
+              console.log('[BlinkitApi] Found Turnstile checkbox, attempting click...');
+              await box.click().catch(() => {});
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
+        await page.waitForFunction(
+          () => !document.title.includes('Just a moment') && !document.title.includes('Attention Required'),
+          { timeout: 35000, polling: 500 }
+        );
+        pageTitle = await page.title().catch(() => 'unknown');
+        console.log(`[BlinkitApi] Cloudflare challenge resolved successfully! Page title: "${pageTitle}"`);
+      } catch (err) {
+        pageTitle = await page.title().catch(() => 'unknown');
+        console.warn(`[BlinkitApi] Cloudflare challenge wait finished. Page title: "${pageTitle}"`);
+      }
+    } else {
+      console.log(`[BlinkitApi] Browser session ready at "${pageTitle}" (${page.url()})`);
+    }
+
     await sleep(2000);
-    const pageTitle = await page.title().catch(() => 'unknown');
-    console.log(`[BlinkitApi] Browser session ready at "${pageTitle}" (${page.url()})`);
 
     console.log(`[BlinkitApi] Scanning ${ALL_KEYWORDS.length} categories inside browser session...`);
     const { allResults, sampleError } = await page.evaluate(async (keywords, latStr, lonStr) => {

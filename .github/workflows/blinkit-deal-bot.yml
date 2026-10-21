@@ -40,6 +40,11 @@ jobs:
         working-directory: blinkit-bot
         run: npm install --production
 
+      - name: Install Xvfb (Virtual Framebuffer for Headed Browser)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
       - name: Restore Deal Cache
         uses: actions/cache/restore@v4
         with:
@@ -61,7 +66,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           echo "Starting Blinkit Deal Hunter Bot..."
-          node src/runner.js
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" node src/runner.js
 
       - name: Save Deal Cache
         uses: actions/cache/save@v4

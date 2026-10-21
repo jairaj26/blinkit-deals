@@ -17,6 +17,8 @@
   "license": "MIT",
   "dependencies": {
     "dotenv": "^16.4.5",
-    "puppeteer-core": "^25.14.0"
+    "puppeteer-core": "^25.14.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
