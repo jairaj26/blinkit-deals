@@ -2,13 +2,17 @@
  * Blinkit Deal Tracker & Deduplication Engine
  * - Suppresses duplicate alerts if an item has the same discount across hourly runs.
  * - Suppresses items for 1 week if their price remains unchanged for a full day (24h).
- * - Restores and persists deal state via data/deals_cache.json.
+ * - Restores and persists deal state via data/deals_cache.json and an external persistent backup.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const CACHE_FILE = path.join(__dirname, '..', 'data', 'deals_cache.json');
+const BACKUP_CACHE_FILE = path.join(
+  process.env.LOCALAPPDATA || process.env.APPDATA || process.env.HOME || 'C:\\actions-runner',
+  'blinkit_deals_cache.json'
+);
 
 function ensureDataDir() {
   const dir = path.dirname(CACHE_FILE);
@@ -20,13 +24,29 @@ function ensureDataDir() {
 function loadCache() {
   ensureDataDir();
   try {
+    // 1. Try loading primary repository cache
     if (fs.existsSync(CACHE_FILE)) {
       const content = fs.readFileSync(CACHE_FILE, 'utf8');
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      if (parsed && parsed.items && Object.keys(parsed.items).length > 0) {
+        return parsed;
+      }
+    }
+
+    // 2. Fallback: Restore from persistent external backup outside Git workspace
+    if (fs.existsSync(BACKUP_CACHE_FILE)) {
+      const content = fs.readFileSync(BACKUP_CACHE_FILE, 'utf8');
+      const parsed = JSON.parse(content);
+      if (parsed && parsed.items && Object.keys(parsed.items).length > 0) {
+        console.log(`[DealTracker] Restored ${Object.keys(parsed.items).length} deals from persistent local backup (${BACKUP_CACHE_FILE}).`);
+        fs.writeFileSync(CACHE_FILE, JSON.stringify(parsed, null, 2), 'utf8');
+        return parsed;
+      }
     }
   } catch (err) {
     console.warn(`[DealTracker] Could not load cache (${err.message}). Starting with fresh state.`);
   }
+
   return {
     lastRunAt: null,
     items: {}
@@ -44,7 +64,16 @@ function saveCache(cache) {
         delete cache.items[key];
       }
     }
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf8');
+
+    const jsonStr = JSON.stringify(cache, null, 2);
+
+    // 1. Save to primary repo location
+    fs.writeFileSync(CACHE_FILE, jsonStr, 'utf8');
+
+    // 2. Save to persistent external location immune to 'git clean' or runner wipes
+    try {
+      fs.writeFileSync(BACKUP_CACHE_FILE, jsonStr, 'utf8');
+    } catch (_) {}
   } catch (err) {
     console.error(`[DealTracker] Error saving cache: ${err.message}`);
   }

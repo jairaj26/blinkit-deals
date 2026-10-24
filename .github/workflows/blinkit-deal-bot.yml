@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          clean: false
 
       # Only needed on cloud-hosted runners; self-hosted PC already has Node installed
       - name: Setup Node.js 20 (Cloud only)
