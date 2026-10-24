@@ -1,9 +1,10 @@
 name: Blinkit Hourly 80%+ Deal Hunter
 
 on:
-  schedule:
-    # Runs every hour at minute 31 UTC (= minute 01 of every hour IST)
-    - cron: '31 * * * *'
+  # Punctually triggered at :10 past every hour via cron-job.org (workflow_dispatch)
+  # GitHub's internal schedule is disabled to prevent delayed duplicate runs
+  # schedule:
+  #   - cron: '40 * * * *'
   workflow_dispatch:
     inputs:
       min_discount:
