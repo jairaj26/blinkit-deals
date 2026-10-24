@@ -36,7 +36,6 @@ function loadCache() {
 function saveCache(cache) {
   ensureDataDir();
   try {
-    // Purge stale items not seen in over 30 days to keep cache fast
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     for (const key of Object.keys(cache.items || {})) {
       const item = cache.items[key];
@@ -60,12 +59,6 @@ function getItemKey(item) {
   return `key_${cleanName}_${cleanVar}`;
 }
 
-/**
- * Evaluates scanned items against previous deal history.
- * @param {Array} scannedItems - List of items returned by blinkitApi.
- * @param {Object} options - { forceSend: boolean }
- * @returns {Object} { toSend: Array, cache: Object, stats: Object }
- */
 function processAndFilterDeals(scannedItems, options = {}) {
   const cache = loadCache();
   const now = new Date();
@@ -85,22 +78,7 @@ function processAndFilterDeals(scannedItems, options = {}) {
     const key = getItemKey(item);
     const existing = cache.items[key];
 
-    // 1. Check if item is in 1-week suppression cooldown
-    if (existing && existing.suppressedUntil) {
-      const suppressionEnd = new Date(existing.suppressedUntil).getTime();
-      if (nowMs < suppressionEnd) {
-        existing.lastSeenAt = now.toISOString();
-        stats.suppressedWeek++;
-        continue;
-      } else {
-        // Cooldown expired, clear suppression flag
-        existing.suppressedUntil = null;
-        existing.firstSeenPriceAt = now.toISOString();
-        existing.consecutiveHoursSamePrice = 1;
-      }
-    }
-
-    // 2. Case: Brand New Deal (Never seen before)
+    // 1. Case: Brand New Deal (Never seen before)
     if (!existing) {
       cache.items[key] = {
         productId: item.productId,
@@ -130,7 +108,7 @@ function processAndFilterDeals(scannedItems, options = {}) {
       continue;
     }
 
-    // 3. Case: Forced Send override (e.g. manual GitHub Action trigger)
+    // 2. Case: Forced Send override (bypasses cooldown and deduplication)
     if (options.forceSend) {
       existing.lastSeenAt = now.toISOString();
       existing.lastNotifiedPrice = item.price;
@@ -141,7 +119,7 @@ function processAndFilterDeals(scannedItems, options = {}) {
       continue;
     }
 
-    // 4. Case: Price dropped further or discount increased!
+    // 3. Case: Price dropped further or discount increased (even if previously suppressed)
     if (item.price < existing.lastNotifiedPrice || item.discountPct > existing.lastNotifiedDiscount) {
       existing.mrp = item.mrp;
       existing.price = item.price;
@@ -150,7 +128,7 @@ function processAndFilterDeals(scannedItems, options = {}) {
       existing.url = item.url;
       existing.image = item.image || existing.image;
       existing.lastSeenAt = now.toISOString();
-      existing.firstSeenPriceAt = now.toISOString(); // Reset 24-hour same-price counter
+      existing.firstSeenPriceAt = now.toISOString();
       existing.consecutiveHoursSamePrice = 1;
       existing.lastNotifiedPrice = item.price;
       existing.lastNotifiedDiscount = item.discountPct;
@@ -162,16 +140,30 @@ function processAndFilterDeals(scannedItems, options = {}) {
       continue;
     }
 
-    // 5. Case: Identical Price / Discount on second+ fetch
+    // 4. Check if item is in 1-week suppression cooldown
+    if (existing.suppressedUntil) {
+      const suppressionEnd = new Date(existing.suppressedUntil).getTime();
+      if (nowMs < suppressionEnd) {
+        existing.lastSeenAt = now.toISOString();
+        stats.suppressedWeek++;
+        continue;
+      } else {
+        existing.suppressedUntil = null;
+        existing.firstSeenPriceAt = now.toISOString();
+        existing.consecutiveHoursSamePrice = 1;
+      }
+    }
+
+    // 5. Case: Identical (or higher) Price on subsequent fetch
     existing.lastSeenAt = now.toISOString();
+    existing.price = item.price;
+    existing.discountPct = item.discountPct;
     existing.consecutiveHoursSamePrice = (existing.consecutiveHoursSamePrice || 1) + 1;
 
-    // Check if it has remained at the same price for a whole day (>= 23.5 hours)
     const firstPriceTime = new Date(existing.firstSeenPriceAt || existing.firstSeenAt).getTime();
     const hoursAtSamePrice = (nowMs - firstPriceTime) / (1000 * 60 * 60);
 
     if (hoursAtSamePrice >= 23.5) {
-      // Mute this item for 7 days
       const sevenDaysLater = new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
       existing.suppressedUntil = sevenDaysLater;
       stats.suppressedWeek++;

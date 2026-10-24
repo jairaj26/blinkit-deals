@@ -1,6 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const terser = require('d:/Projects/Swiggy/swiggy-telegram-bot/node_modules/terser');
+let terser;
+try {
+  terser = require('terser');
+} catch (_) {
+  try {
+    terser = require('d:/Projects/Swiggy/swiggy-telegram-bot/node_modules/terser');
+  } catch (err) {
+    console.error('terser package not found. Please install terser (npm install -D terser).');
+    throw err;
+  }
+}
 
 async function build() {
   console.log('Reading blinkit-deals.js...');

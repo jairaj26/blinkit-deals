@@ -5,6 +5,14 @@
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function escapeHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatDealMessage(item) {
   const inr = (n) => '₹' + Number(n).toLocaleString('en-IN');
   const catText = item.categories && item.categories.length ? item.categories.join(' · ') : (item.category || 'Deals');
@@ -19,14 +27,44 @@ ${variantText}${brandText}📂 <b>Category:</b> ${escapeHtml(catText)}
 💰 <b>Deal Price:</b> ${inr(item.price)}  (MRP: <s>${inr(item.mrp)}</s>)
 💸 <b>You Save:</b> ${inr(item.savings)} (${Math.round(item.discountPct)}% OFF)
 
-🔗 <a href="${item.url}"><b>Buy on Blinkit ⚡</b></a>`;
+🔗 <a href="${escapeHtml(item.url)}"><b>Buy on Blinkit ⚡</b></a>`;
 }
 
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+/**
+ * Calls Telegram Bot API with automatic HTTP 429 rate limit backoff.
+ */
+async function callTelegramApi(endpointUrl, body, maxRetries = 3) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(endpointUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json().catch(() => ({ ok: false, description: `HTTP ${res.status}: ${res.statusText}` }));
+
+      if (data.ok) return data;
+
+      // Handle HTTP 429 Too Many Requests
+      if (res.status === 429 || data.error_code === 429) {
+        const waitSec = (data.parameters && data.parameters.retry_after) || 5;
+        console.warn(`[Notifier] Telegram 429 Rate Limit hit. Backing off for ${waitSec}s (attempt ${attempt + 1}/${maxRetries})...`);
+        await sleep((waitSec + 1) * 1000);
+        continue;
+      }
+
+      // Non-retryable error
+      return data;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        return { ok: false, description: err.message };
+      }
+      console.warn(`[Notifier] Telegram network attempt ${attempt + 1} failed (${err.message}). Retrying in 2s...`);
+      await sleep(2000);
+    }
+  }
+  return { ok: false, description: 'Max Telegram retries exceeded' };
 }
 
 /**
@@ -38,41 +76,27 @@ async function sendSingleDeal(token, chatId, item) {
 
   // Try sending as Photo first if image URL is available
   if (item.image && item.image.startsWith('https://')) {
-    try {
-      const photoUrl = `${telegramBase}/sendPhoto`;
-      const res = await fetch(photoUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          photo: item.image,
-          caption: text,
-          parse_mode: 'HTML'
-        })
-      });
-      const data = await res.json();
-      if (data.ok) return true;
-      console.warn(`[Notifier] sendPhoto returned false (${data.description}), falling back to sendMessage.`);
-    } catch (err) {
-      console.warn(`[Notifier] sendPhoto network error (${err.message}), falling back to text.`);
-    }
+    const photoData = await callTelegramApi(`${telegramBase}/sendPhoto`, {
+      chat_id: chatId,
+      photo: item.image,
+      caption: text,
+      parse_mode: 'HTML'
+    });
+
+    if (photoData.ok) return true;
+    console.warn(`[Notifier] sendPhoto returned false (${photoData.description}), falling back to sendMessage.`);
   }
 
   // Fallback to text message
-  const msgUrl = `${telegramBase}/sendMessage`;
-  const res = await fetch(msgUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: text,
-      parse_mode: 'HTML',
-      disable_web_page_preview: false
-    })
+  const msgData = await callTelegramApi(`${telegramBase}/sendMessage`, {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: false
   });
-  const data = await res.json();
-  if (!data.ok) {
-    throw new Error(`Telegram error: ${data.description}`);
+
+  if (!msgData.ok) {
+    throw new Error(`Telegram error: ${msgData.description}`);
   }
   return true;
 }

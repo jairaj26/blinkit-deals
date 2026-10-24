@@ -7,7 +7,7 @@ try {
   require('dotenv').config();
 } catch (_) {}
 
-const { fetchHighDiscountDeals } = require('./blinkitApi');
+const { fetchHighDiscountDeals, ALL_KEYWORDS } = require('./blinkitApi');
 const { processAndFilterDeals, saveCache } = require('./dealTracker');
 const { sendDeals } = require('./notifier');
 
@@ -29,6 +29,7 @@ async function main() {
   const lat = process.env.BLINKIT_LAT || '13.0388595';
   const lon = process.env.BLINKIT_LON || '77.60125099999999';
   const cookie = process.env.BLINKIT_COOKIE || '';
+  const proxyUrl = process.env.PROXY_URL || '';
 
   console.log('====================================================');
   console.log('⚡ Blinkit Deal Hunter Bot - Hourly Execution');
@@ -36,6 +37,7 @@ async function main() {
   console.log(`🎯 Minimum Discount: ${minDiscount}% OFF`);
   console.log(`📍 Location: ${lat}, ${lon}`);
   console.log(`🍪 Cookie Provided: ${cookie ? 'YES' : 'NO'}`);
+  console.log(`🌐 Proxy Provided: ${proxyUrl ? 'YES' : 'NO'}`);
   console.log(`🤖 Dry Run: ${isDryRun ? 'YES (No messages sent)' : 'NO'}`);
   console.log(`⚡ Force Send: ${forceSend ? 'YES' : 'NO'}`);
   console.log('====================================================\n');
@@ -46,12 +48,20 @@ async function main() {
   }
 
   // 1. Fetch Page 1 across all 36 categories with discount_desc
-  const scannedItems = await fetchHighDiscountDeals({
+  const { items: scannedItems, categoriesScanned } = await fetchHighDiscountDeals({
     lat,
     lon,
     cookie,
+    proxyUrl,
     minDiscount
   });
+
+  if (categoriesScanned === 0) {
+    throw new Error(
+      `Cloudflare blocked all ${ALL_KEYWORDS.length} category requests (HTTP 403). ` +
+      `Use a self-hosted runner on an Indian IP or configure Secrets.PROXY_URL.`
+    );
+  }
 
   // 2. Filter through dealTracker state machine
   const { toSend, cache, stats } = processAndFilterDeals(scannedItems, {
@@ -60,9 +70,11 @@ async function main() {
   });
 
   console.log('\n--- Deal Tracker Evaluation Summary ---');
+  console.log(`📂 Categories Scanned: ${categoriesScanned}/${ALL_KEYWORDS.length}`);
   console.log(`📦 Total Scanned (>= ${minDiscount}%): ${stats.totalScanned}`);
   console.log(`✨ Brand New Deals: ${stats.newDeals}`);
   console.log(`📉 Price Drops: ${stats.priceDrops}`);
+  if (stats.forceSent > 0) console.log(`⚡ Force Sent: ${stats.forceSent}`);
   console.log(`⏭️ Ignored (Same Discount as last run): ${stats.ignoredSameDiscount}`);
   console.log(`⏸️ Suppressed (Remained same price for 24h, muted for 1 week): ${stats.suppressedWeek}`);
   console.log(`🚀 Final Deals to Alert: ${toSend.length}`);
@@ -79,6 +91,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('\n❌ Fatal error in deal bot runner:', err);
+  console.error('\n❌ Fatal error in deal bot runner:', err.message || err);
   process.exit(1);
 });

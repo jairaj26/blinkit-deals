@@ -1797,13 +1797,15 @@
     return { items, complete, partial, cancelled: false, pagesScanned: pageIdx };
   }
 
-  // ---------- 36 Top Categories Keywords for Mega Deals Scout ----------
+  // ---------- 50 Top Categories Keywords for Mega Deals Scout ----------
   const ALL_KEYWORDS = [
     "atta", "rice", "dal", "ghee", "sweets", "chocolate", "cake", "snacks",
     "dry fruits", "coffee", "dairy", "fruits", "vegetables", "grocery", "oil",
     "masala", "instant", "ice cream", "munchies", "beverages", "tea", "eggs",
     "meat", "skincare", "haircare", "bath", "oral", "makeup", "kitchen",
-    "bed", "home", "appliances", "detergents", "protein", "stationery", "premium"
+    "bed", "home", "appliances", "detergents", "protein", "stationery", "premium",
+    "biscuits", "noodles", "pasta", "sauces", "cereal", "perfume", "deodorant",
+    "cleaning", "baby", "pet", "electronics", "cookware", "wellness", "beauty"
   ];
 
   const QUICK_KEYWORDS = [
@@ -2788,7 +2790,7 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
     ctrl = new AbortController();
     setBusy(true);
     setProgress(0.01);
-    setStatus("Scanning 36 essential categories (page 1 deals)...");
+    setStatus("Scanning 50 essential categories (page 1 deals)...");
 
     const seen = new Set();
     const items = [];
@@ -2824,8 +2826,12 @@ footer{padding:10px 16px 14px;border-top:1px solid var(--line);min-height:52px}
         }
 
         if (list && list.length) {
+          if (!fromCache) {
+            searchCache.set(cacheKey, { items: list, complete: false, partial: false, pagesScanned: 1 });
+          }
           const catName = cap(kw);
-          for (const it of list) {
+          for (const rawIt of list) {
+            const it = Object.assign({}, rawIt);
             if (it.discountPct > 0) {
               const key = it.productId || (it.name + "|" + it.variant);
               if (!seen.has(key)) {

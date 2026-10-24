@@ -10,6 +10,13 @@ on:
         description: 'Minimum discount percentage (default: 80)'
         required: false
         default: '80'
+      runner_type:
+        description: 'Runner target: self-hosted (Home PC) or ubuntu-latest (GitHub cloud)'
+        type: choice
+        options:
+          - self-hosted
+          - ubuntu-latest
+        default: self-hosted
       force_send:
         description: 'Force send all matching deals (skip deduplication)'
         type: boolean
@@ -24,7 +31,7 @@ on:
 jobs:
   hunt:
     name: Blinkit Deal Hunter
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner_type || 'self-hosted' }}
     timeout-minutes: 10
 
     steps:
@@ -40,7 +47,8 @@ jobs:
         working-directory: blinkit-bot
         run: npm install --production
 
-      - name: Install Xvfb (Virtual Framebuffer for Headed Browser)
+      - name: Install Xvfb (Linux only)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb
@@ -53,7 +61,8 @@ jobs:
           restore-keys: |
             blinkit-deal-cache-
 
-      - name: Run Hourly Deal Hunter
+      - name: Run Hourly Deal Hunter (Linux)
+        if: runner.os == 'Linux'
         working-directory: blinkit-bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -61,12 +70,30 @@ jobs:
           BLINKIT_LAT: ${{ secrets.BLINKIT_LAT }}
           BLINKIT_LON: ${{ secrets.BLINKIT_LON }}
           BLINKIT_COOKIE: ${{ secrets.BLINKIT_COOKIE }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
           MIN_DISCOUNT: ${{ inputs.min_discount || secrets.MIN_DISCOUNT || '80' }}
           FORCE_SEND: ${{ inputs.force_send || 'false' }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           echo "Starting Blinkit Deal Hunter Bot..."
           xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" node src/runner.js
+
+      - name: Run Hourly Deal Hunter (Windows / macOS)
+        if: runner.os != 'Linux'
+        working-directory: blinkit-bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BLINKIT_LAT: ${{ secrets.BLINKIT_LAT }}
+          BLINKIT_LON: ${{ secrets.BLINKIT_LON }}
+          BLINKIT_COOKIE: ${{ secrets.BLINKIT_COOKIE }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
+          MIN_DISCOUNT: ${{ inputs.min_discount || secrets.MIN_DISCOUNT || '80' }}
+          FORCE_SEND: ${{ inputs.force_send || 'false' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          echo "Starting Blinkit Deal Hunter Bot on ${{ runner.os }}..."
+          node src/runner.js
 
       - name: Save Deal Cache
         uses: actions/cache/save@v4

@@ -2,8 +2,8 @@
  * Blinkit Deal Hunter API Fetcher
  * Strictly fetches Page 1 of 36 essential categories sorted by discount descending.
  * Supports dual fetch modes:
- *  1. Direct REST Fetch (fast, uses headers + cookies).
- *  2. Headless Browser (Puppeteer-core) fallback if Cloudflare blocks datacenter IPs.
+ *  1. Direct REST Fetch (fast, uses headers + cookies + optional PROXY_URL).
+ *  2. Headless Browser (Puppeteer) fallback with native Linux fingerprint & Turnstile wait.
  */
 
 const fs = require('fs');
@@ -11,7 +11,13 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
+let ProxyAgent = null;
+try {
+  ({ ProxyAgent } = require('undici'));
+} catch (_) {}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const tx = (v) => (v && typeof v === 'object' ? v.text || '' : v == null ? '' : String(v));
 const toNum = (s) => {
   const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) ? n : 0;
@@ -28,7 +34,9 @@ const ALL_KEYWORDS = [
   'dry fruits', 'coffee', 'dairy', 'fruits', 'vegetables', 'grocery', 'oil',
   'masala', 'instant', 'ice cream', 'munchies', 'beverages', 'tea', 'eggs',
   'meat', 'skincare', 'haircare', 'bath', 'oral', 'makeup', 'kitchen',
-  'bed', 'home', 'appliances', 'detergents', 'protein', 'stationery', 'premium'
+  'bed', 'home', 'appliances', 'detergents', 'protein', 'stationery', 'premium',
+  'biscuits', 'noodles', 'pasta', 'sauces', 'cereal', 'perfume', 'deodorant',
+  'cleaning', 'baby', 'pet', 'electronics', 'cookware', 'wellness', 'beauty'
 ];
 
 function findBrowserExecutable() {
@@ -60,9 +68,9 @@ function getProductUrl(it) {
 
 function toItem(d) {
   const ci = (d.atc_action && d.atc_action.add_to_cart && d.atc_action.add_to_cart.cart_item) || null;
-  const name = (d.name && d.name.text) || d.name || (ci && (ci.display_name || ci.product_name)) || '';
-  const price = toNum((d.normal_price && d.normal_price.text) || d.normal_price) || Number(ci && ci.price) || 0;
-  let mrp = toNum((d.mrp && d.mrp.text) || d.mrp) || Number(ci && ci.mrp) || 0;
+  const name = tx(d.name) || (ci && (ci.display_name || ci.product_name)) || '';
+  const price = toNum(tx(d.normal_price)) || Number(ci && ci.price) || 0;
+  let mrp = toNum(tx(d.mrp)) || Number(ci && ci.mrp) || 0;
   if (!name || !price) return null;
   if (!mrp || mrp < price) mrp = price;
 
@@ -74,8 +82,8 @@ function toItem(d) {
   const item = {
     productId: pid,
     name: String(name).trim(),
-    variant: String((d.variant && d.variant.text) || d.variant || (ci && ci.unit) || '').trim(),
-    brand: String((d.brand_name && d.brand_name.text) || d.brand || (ci && ci.brand) || '').trim(),
+    variant: String(tx(d.variant) || (ci && ci.unit) || '').trim(),
+    brand: String(tx(d.brand_name) || d.brand || (ci && ci.brand) || '').trim(),
     mrp,
     price,
     discountPct,
@@ -140,13 +148,16 @@ async function fetchKeywordPage0(keyword, config) {
   const headers = {
     'content-type': 'application/json',
     accept: '*/*',
-    'accept-language': 'en-US,en;q=0.9',
+    'accept-language': 'en-IN,en-US;q=0.9,en;q=0.8',
     app_client: 'consumer_web',
     lat: String(config.lat || '13.0388595'),
     lon: String(config.lon || '77.60125099999999'),
     origin: 'https://blinkit.com',
-    referrer: 'https://blinkit.com/',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+    referer: 'https://blinkit.com/',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-origin',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
   };
 
   if (config.cookie) {
@@ -158,7 +169,7 @@ async function fetchKeywordPage0(keyword, config) {
     }
   }
 
-  const res = await fetch(searchUrl, {
+  const fetchOpts = {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -171,7 +182,13 @@ async function fetchKeywordPage0(keyword, config) {
       oos_visibility: 'true',
       sort: 'discount_desc'
     })
-  });
+  };
+
+  if (config.proxyUrl && ProxyAgent) {
+    fetchOpts.dispatcher = new ProxyAgent(config.proxyUrl);
+  }
+
+  const res = await fetch(searchUrl, fetchOpts);
 
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -181,45 +198,72 @@ async function fetchKeywordPage0(keyword, config) {
   return parseItems(json);
 }
 
+function isCloudflareChallengeOrBlock(title, url) {
+  const t = String(title || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+  return (
+    t.includes('just a moment') ||
+    t.includes('attention required') ||
+    t.includes('error page') ||
+    t.includes('security check') ||
+    u.includes('__cf_chl_')
+  );
+}
+
 /**
  * Headless browser runner when Cloudflare blocks direct REST fetches.
  */
 async function fetchViaBrowser(config = {}) {
   const executablePath = findBrowserExecutable();
   if (!executablePath) {
-    throw new Error('No Chrome or Chromium browser executable found on this machine for headless mode.');
+    throw new Error('No Chrome or Chromium browser executable found on this machine for browser mode.');
   }
 
-  const isHeadless = process.env.HEADLESS === 'true';
+  const isHeadless = process.env.HEADLESS !== 'false';
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-blink-features=AutomationControlled',
+    '--window-size=1280,960',
+    '--lang=en-IN,en'
+  ];
+
+  let proxyAuth = null;
+  if (config.proxyUrl) {
+    try {
+      const parsedProxy = new URL(config.proxyUrl);
+      launchArgs.push(`--proxy-server=${parsedProxy.protocol}//${parsedProxy.host}`);
+      if (parsedProxy.username || parsedProxy.password) {
+        proxyAuth = {
+          username: decodeURIComponent(parsedProxy.username),
+          password: decodeURIComponent(parsedProxy.password)
+        };
+      }
+      console.log(`[BlinkitApi] Routing browser through proxy: ${parsedProxy.protocol}//${parsedProxy.host}`);
+    } catch (e) {
+      console.warn(`[BlinkitApi] Invalid PROXY_URL format: ${e.message}`);
+    }
+  }
+
   console.log(`[BlinkitApi] Launching browser (headless: ${isHeadless}, path: ${executablePath})...`);
   const browser = await puppeteer.launch({
     executablePath,
     headless: isHeadless ? 'new' : false,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--disable-blink-features=AutomationControlled',
-      '--window-size=1280,960'
-    ]
+    args: launchArgs
   });
 
   try {
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36');
-    await page.setViewport({ width: 1280, height: 960 });
+    if (proxyAuth) {
+      await page.authenticate(proxyAuth);
+    }
 
-    // Anti-bot stealth overrides
-    await page.evaluateOnNewDocument(() => {
-      try {
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-      } catch (_) {}
-      try {
-        window.chrome = { runtime: {} };
-      } catch (_) {}
-    });
+    // Preserve native OS/Chrome version fingerprint, only strip HeadlessChrome token if present
+    const nativeUA = await browser.userAgent();
+    const cleanUA = nativeUA.replace('HeadlessChrome/', 'Chrome/');
+    await page.setUserAgent(cleanUA);
+    await page.setViewport({ width: 1280, height: 960 });
 
     const lat = parseFloat(config.lat || '13.0388595');
     const lon = parseFloat(config.lon || '77.60125099999999');
@@ -230,7 +274,10 @@ async function fetchViaBrowser(config = {}) {
     await page.setGeolocation({ latitude: lat, longitude: lon });
 
     // Inject user cookies into browser context if provided
-    const parsedCookies = parseCookieString(config.cookie);
+    // Note: Do NOT inject stale cf_clearance from another IP as it triggers Cloudflare 403
+    const parsedCookies = parseCookieString(config.cookie).filter(
+      (c) => c.name !== 'cf_clearance' && c.name !== '__cf_bm'
+    );
     const cookiesToSet = parsedCookies.map((c) => ({
       name: c.name,
       value: c.value,
@@ -238,7 +285,6 @@ async function fetchViaBrowser(config = {}) {
       path: '/'
     }));
 
-    // Ensure lat/lon cookies are always included
     if (!cookiesToSet.some((c) => c.name === 'gr_1_lat')) {
       cookiesToSet.push({ name: 'gr_1_lat', value: String(lat), domain: '.blinkit.com', path: '/' });
     }
@@ -247,11 +293,10 @@ async function fetchViaBrowser(config = {}) {
     }
 
     if (cookiesToSet.length > 0) {
-      console.log(`[BlinkitApi] Injected ${cookiesToSet.length} cookies into browser session.`);
+      console.log(`[BlinkitApi] Injected ${cookiesToSet.length} location/session cookies into browser.`);
       await page.setCookie(...cookiesToSet);
     }
 
-    // Navigate to initialize session and bypass Cloudflare challenge
     console.log('[BlinkitApi] Initializing Blinkit session in browser...');
     try {
       await page.goto('https://blinkit.com/', { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -259,39 +304,38 @@ async function fetchViaBrowser(config = {}) {
       console.warn(`[BlinkitApi] Initial page load warning: ${e.message}`);
     }
 
-    // Check if Cloudflare "Just a moment..." challenge is present
     let pageTitle = await page.title().catch(() => 'unknown');
-    if (pageTitle.includes('Just a moment') || pageTitle.includes('Attention Required')) {
-      console.log(`[BlinkitApi] Cloudflare challenge detected ("${pageTitle}"). Waiting for challenge to resolve...`);
-      try {
-        // Attempt to click turnstile box if present in frame
-        const frameEl = await page.$('iframe[src*="challenges.cloudflare.com"]');
-        if (frameEl) {
-          const frame = await frameEl.contentFrame();
-          if (frame) {
-            const box = await frame.$('input[type="checkbox"], .ctp-checkbox-label, #challenge-stage');
-            if (box) {
-              console.log('[BlinkitApi] Found Turnstile checkbox, attempting click...');
-              await box.click().catch(() => {});
+    let pageUrl = page.url();
+
+    if (isCloudflareChallengeOrBlock(pageTitle, pageUrl)) {
+      console.log(`[BlinkitApi] Cloudflare challenge/interstitial detected ("${pageTitle}" at ${pageUrl}). Waiting up to 30s...`);
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await sleep(3000);
+        try {
+          const frames = page.frames();
+          for (const frame of frames) {
+            if (frame.url().includes('challenges.cloudflare.com')) {
+              const box = await frame.$('input[type="checkbox"], .ctp-checkbox-label, #challenge-stage');
+              if (box) {
+                console.log('[BlinkitApi] Clicking Turnstile challenge box...');
+                await box.click().catch(() => {});
+              }
             }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
 
-      try {
-        await page.waitForFunction(
-          () => !document.title.includes('Just a moment') && !document.title.includes('Attention Required'),
-          { timeout: 35000, polling: 500 }
-        );
         pageTitle = await page.title().catch(() => 'unknown');
-        console.log(`[BlinkitApi] Cloudflare challenge resolved successfully! Page title: "${pageTitle}"`);
-      } catch (err) {
-        pageTitle = await page.title().catch(() => 'unknown');
-        console.warn(`[BlinkitApi] Cloudflare challenge wait finished. Page title: "${pageTitle}"`);
+        pageUrl = page.url();
+        if (!isCloudflareChallengeOrBlock(pageTitle, pageUrl)) {
+          console.log(`[BlinkitApi] Challenge cleared! Page title: "${pageTitle}"`);
+          break;
+        }
       }
-    } else {
-      console.log(`[BlinkitApi] Browser session ready at "${pageTitle}" (${page.url()})`);
     }
+
+    pageTitle = await page.title().catch(() => 'unknown');
+    pageUrl = page.url();
+    console.log(`[BlinkitApi] Browser session at "${pageTitle}" (${pageUrl})`);
 
     await sleep(2000);
 
@@ -328,17 +372,22 @@ async function fetchViaBrowser(config = {}) {
             const json = await res.json();
             allResults.push({ keyword: kw, json });
           } else {
+            if (res.status === 429) {
+              await new Promise((r) => setTimeout(r, 2500));
+            }
             if (!sampleError) {
               const text = await res.text().catch(() => '');
               sampleError = `Keyword "${kw}" returned HTTP ${res.status}: ${text.slice(0, 200)}`;
             }
+            // Abort early if browser session itself is returning 403 WAF block
+            if (res.status === 403 && i === 0) break;
           }
         } catch (err) {
           if (!sampleError) {
             sampleError = `Keyword "${kw}" fetch threw: ${err.message || String(err)}`;
           }
         }
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, 400));
       }
       return { allResults, sampleError };
     }, ALL_KEYWORDS, String(lat), String(lon));
@@ -355,8 +404,8 @@ async function fetchViaBrowser(config = {}) {
 
 /**
  * Scans all 36 categories, deduplicating products and filtering for high discounts.
- * @param {Object} config - { lat, lon, cookie, minDiscount, useBrowser }
- * @returns {Promise<Array>} List of qualifying deals sorted by discount descending.
+ * @param {Object} config - { lat, lon, cookie, proxyUrl, minDiscount, useBrowser }
+ * @returns {Promise<{ items: Array, categoriesScanned: number }>}
  */
 async function fetchHighDiscountDeals(config = {}) {
   const minDiscount = typeof config.minDiscount === 'number' ? config.minDiscount : 80;
@@ -370,9 +419,8 @@ async function fetchHighDiscountDeals(config = {}) {
     console.log('[BlinkitApi] Explicit browser mode enabled.');
     rawCategoryOutputs = await fetchViaBrowser(config);
   } else {
-    // Try fast direct REST API first
     console.log(`[BlinkitApi] Scanning ${ALL_KEYWORDS.length} categories via direct API...`);
-    let firstError = null;
+    let blockedError = null;
 
     for (let i = 0; i < ALL_KEYWORDS.length; i++) {
       const kw = ALL_KEYWORDS[i];
@@ -380,25 +428,22 @@ async function fetchHighDiscountDeals(config = {}) {
         const list = await fetchKeywordPage0(kw, config);
         rawCategoryOutputs.push({ keyword: kw, list });
       } catch (err) {
-        if (!firstError) firstError = err;
-        // If first attempt is 403 Forbidden, Cloudflare blocked direct REST -> switch immediately to headless browser!
-        if (i === 0 && String(err.message).includes('403')) {
-          console.warn('[BlinkitApi] Direct REST fetch blocked by Cloudflare (HTTP 403). Falling back to headless browser...');
+        if (String(err.message).includes('403') || String(err.message).includes('503')) {
+          blockedError = err;
+          console.warn(`[BlinkitApi] Direct REST fetch blocked by Cloudflare (${err.message}). Falling back to browser...`);
           break;
         }
       }
       if (i < ALL_KEYWORDS.length - 1) {
-        await sleep(120);
+        await sleep(400);
       }
     }
 
-    // If direct fetch failed on 403, run headless browser fallback
-    if (!rawCategoryOutputs.length && firstError && String(firstError.message).includes('403')) {
+    if (!rawCategoryOutputs.length && blockedError) {
       rawCategoryOutputs = await fetchViaBrowser(config);
     }
   }
 
-  // Parse and aggregate deals
   for (const entry of rawCategoryOutputs) {
     const kw = entry.keyword;
     const catName = cap(kw);
@@ -425,11 +470,10 @@ async function fetchHighDiscountDeals(config = {}) {
     }
   }
 
-  // Sort by highest discount, then biggest savings
   items.sort((a, b) => b.discountPct - a.discountPct || b.savings - a.savings);
 
   console.log(`[BlinkitApi] Finished. Scanned ${rawCategoryOutputs.length}/${ALL_KEYWORDS.length} categories. Found ${items.length} deals >= ${minDiscount}% off.`);
-  return items;
+  return { items, categoriesScanned: rawCategoryOutputs.length };
 }
 
 module.exports = {
