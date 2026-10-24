@@ -38,14 +38,34 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      # Only needed on cloud-hosted runners; self-hosted PC already has Node installed
+      - name: Setup Node.js 20 (Cloud only)
+        if: runner.os == 'Linux'
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Dependencies
+      # Re-use existing node_modules on self-hosted runner to avoid downloading packages every hour
+      - name: Install Dependencies (Windows)
+        if: runner.os == 'Windows'
         working-directory: blinkit-bot
-        run: npm install --production
+        run: |
+          if (-not (Test-Path node_modules)) {
+            echo "Installing dependencies..."
+            npm install --production
+          } else {
+            echo "Dependencies already present in workspace. Skipping install."
+          }
+
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
+        working-directory: blinkit-bot
+        run: |
+          if [ ! -d "node_modules" ]; then
+            npm install --production
+          else
+            echo "Dependencies already present in workspace. Skipping install."
+          fi
 
       - name: Install Xvfb (Linux only)
         if: runner.os == 'Linux'
@@ -53,7 +73,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
 
-      - name: Restore Deal Cache
+      - name: Restore Deal Cache (Cloud only)
+        if: runner.os == 'Linux'
         uses: actions/cache/restore@v4
         with:
           path: blinkit-bot/data
@@ -95,9 +116,9 @@ jobs:
           echo "Starting Blinkit Deal Hunter Bot on ${{ runner.os }}..."
           node src/runner.js
 
-      - name: Save Deal Cache
+      - name: Save Deal Cache (Cloud only)
+        if: always() && runner.os == 'Linux'
         uses: actions/cache/save@v4
-        if: always()
         with:
           path: blinkit-bot/data
           key: blinkit-deal-cache-${{ github.run_id }}
