@@ -16,13 +16,8 @@ This repository contains two complete tools:
   - [How to Use the Deal Hunter](#how-to-use-the-deal-hunter)
   - [Bookmarklet Features at a Glance](#bookmarklet-features-at-a-glance)
 - [🤖 Part 2: Automated Telegram Deal Bot (80%+ Clearance)](#-part-2-automated-telegram-deal-bot-80-clearance)
-  - [How the Bot Works](#how-the-bot-works)
-  - [Step 1: Create a Free Telegram Bot](#step-1-create-a-free-telegram-bot)
-  - [Step 2: Get Your Delivery Coordinates](#step-2-get-your-delivery-coordinates)
-  - [Step 3: Setup GitHub Secrets](#step-3-setup-github-secrets)
-  - [Step 4: Connect Your PC as a Self-Hosted Runner](#step-4-connect-your-pc-as-a-self-hosted-runner-recommended)
-  - [Step 5: Schedule Exact Runs with cron-job.org](#step-5-schedule-exact-runs-with-cron-joborg-at-10-past-every-hour)
-  - [Alternative: Running Locally on Your PC](#alternative-running-locally-on-your-pc-without-github)
+  - [⚡ Option A: 1-Click Windows Setup Wizard (Recommended)](#-option-a-1-click-windows-setup-wizard-recommended)
+  - [⚙️ Option B: Advanced GitHub Actions Setup](#️-option-b-advanced-github-actions-setup)
 - [🛡️ Anti-Rate-Limit & Performance Architecture](#️-anti-rate-limit--performance-architecture)
 - [📄 License](#-license)
 
@@ -115,147 +110,64 @@ An automated background worker that scans Blinkit every hour, hunts down steep c
   ```
 * **50 Categories Scanned**: Scans all major grocery, personal care, home, electronics, and baby care categories.
 * **Smart Deduplication**: If an item is already reported at the same price, it will not be sent again. If an item remains at the same clearance price for 24 hours, alerts are silenced for **7 days** to avoid repeated noise.
-* **Lighting Fast Execution**: Runs in under **35 seconds** on a self-hosted runner.
+* **Lighting Fast Execution**: Runs in under **35 seconds**.
 
 ---
 
-### Step 1: Create a Free Telegram Bot
+### ⚡ Option A: 1-Click Windows Setup Wizard (Recommended)
 
-1. Open the **Telegram** app and search for `@BotFather`.
-2. Send `/newbot` and follow the instructions:
-   - Enter a friendly name for your bot (e.g. `My Blinkit Deal Hunter`).
-   - Enter a username ending in `bot` (e.g. `my_blinkit_hunter_bot`).
-3. BotFather will provide an **HTTP API Token** (e.g. `7123456789:ABCdefGhIJKlmNoPQRstuvWXyz`).  
-   👉 *Save this — this is your `TELEGRAM_BOT_TOKEN`.*
-4. Open your new bot's chat in Telegram and press **Start**.
-5. Find your numeric Telegram ID:
-   - Search for `@userinfobot` in Telegram and press **Start**.
-   - It will reply with your numeric `Id` (e.g. `123456789`).  
-   👉 *Save this — this is your `TELEGRAM_CHAT_ID`.*
-   > **Note for Channels**: If you want to post deals to a private or public Telegram channel, add your bot as an **Administrator** of that channel. You can then use your channel username (e.g. `@my_deals_channel`) or the channel's numeric ID as your `TELEGRAM_CHAT_ID`.
+No complicated developer setups, GitHub tokens, or cron-jobs needed! A visual setup wizard runs right in your browser.
 
----
+#### 3-Step Setup:
+1. **Download the repository**:  
+   Click the green **Code** button $\to$ **Download ZIP**, and extract it anywhere on your Windows PC.
+2. **Double-click `setup.bat`**:  
+   This automatically installs requirements and opens the visual Setup Wizard in your browser (`http://localhost:4567`).
+3. **Fill in the visual form**:
+   - **Telegram Bot**: Enter your Token (link provided to `@BotFather`) and Chat ID (link provided to `@userinfobot`), then click **🔔 Test Ping** to verify!
+   - **Location**: Click **📍 1-Click Detect My Location** to auto-fill your exact coordinates via browser GPS (or paste any Google Maps link of your home).
+   - **Discount**: Choose your threshold (e.g., 80% OFF).
+   - Click **🚀 Save & Enable Hourly Deal Hunter**.
 
-### Step 2: Get Your Delivery Coordinates
+#### What Happens Automatically:
+* **Windows Task Scheduler**: Windows automatically registers a background task named `BlinkitDealHunter` to trigger punctually at **`:10`** past every hour.
+* **100% Silent Execution**: Uses a background launcher (`run_silent.vbs`) so **no black command window ever pops up**.
+* **Zero RAM Wasted**: Between hourly runs, the bot uses **0 MB RAM**. It wakes up at `:10`, checks 50 categories in 30 seconds, alerts your Telegram, and exits.
+* **Survives PC Restarts**: Windows automatically keeps the schedule active across reboots.
 
-Blinkit's inventory and prices depend strictly on your local dark store location.
-
-1. Open **[Google Maps](https://maps.google.com)** on your computer or phone.
-2. Click or long-press on your apartment or delivery address.
-3. Look at the coordinates displayed (for example: `13.0388595, 77.601251`):
-   - First number is Latitude $\to$ `13.0388595` (`BLINKIT_LAT`)
-   - Second number is Longitude $\to$ `77.601251` (`BLINKIT_LON`)
+#### Handy Helper Scripts:
+* **`run-now.bat`**: Double-click anytime to run an instant live scan and watch deals roll in.
+* **`uninstall.bat`**: Double-click anytime to completely remove the scheduled background task in 1 second.
 
 ---
 
-### Step 3: Setup GitHub Secrets
+### ⚙️ Option B: Advanced GitHub Actions Setup
 
-1. **Fork** or **Clone** this repository to your GitHub account:
-   - Click the **Fork** button at the top-right of [https://github.com/jairaj26/blinkit-deals](https://github.com/jairaj26/blinkit-deals).
-2. In your GitHub repository, navigate to:  
-   **Settings** $\to$ **Secrets and variables** $\to$ **Actions** $\to$ **New repository secret**.
-3. Add the following secrets:
+For developers who prefer running the hunter workflow via GitHub Actions orchestration with a self-hosted runner and external webhook triggers:
 
-| Secret Name | Required? | Example Value | Description |
-| :--- | :---: | :--- | :--- |
-| `TELEGRAM_BOT_TOKEN` | **Yes** | `7123456789:ABCdefGhI...` | Token from @BotFather |
-| `TELEGRAM_CHAT_ID` | **Yes** | `123456789` or `@my_deals` | Your chat ID or channel username |
-| `BLINKIT_LAT` | **Yes** | `13.0388595` | Delivery location latitude |
-| `BLINKIT_LON` | **Yes** | `77.601251` | Delivery location longitude |
-| `MIN_DISCOUNT` | No | `80` | Minimum discount percentage (default: `80`) |
-| `BLINKIT_COOKIE` | No | `gr_1_lat=13...;` | Browser cookie for store pinning |
+#### 1. Setup Telegram Credentials & Coordinates
+- Get your bot token from `@BotFather` and your chat ID from `@userinfobot`.
+- Get your coordinates from Google Maps (`BLINKIT_LAT`, `BLINKIT_LON`).
 
----
+#### 2. Add GitHub Repository Secrets
+Under your GitHub repo: **Settings** $\to$ **Secrets and variables** $\to$ **Actions** $\to$ **New repository secret**:
+* `TELEGRAM_BOT_TOKEN`
+* `TELEGRAM_CHAT_ID`
+* `BLINKIT_LAT`
+* `BLINKIT_LON`
+* `MIN_DISCOUNT` *(Optional, default: 80)*
 
-### Step 4: Connect Your PC as a Self-Hosted Runner (Recommended)
+#### 3. Connect Self-Hosted Windows Runner
+Under **Settings** $\to$ **Actions** $\to$ **Runners** $\to$ **New runner**, follow the commands:
+```powershell
+mkdir C:\actions-runner; cd C:\actions-runner
+# Download and extract runner
+./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN> --runasservice
+```
 
-> **Why Self-Hosted?**  
-> GitHub Actions cloud servers run inside US datacenter IP ranges that Cloudflare frequently blocks with bot challenges. Running the bot via your home PC runner uses your residential Indian IP, bypassing all Cloudflare blocks effortlessly and scanning 50 categories in under **35 seconds**.
-
-#### Setting up the runner on Windows:
-1. In your GitHub repository, go to **Settings** $\to$ **Actions** $\to$ **Runners** $\to$ **New runner**.
-2. Select **Windows** and **x64**.
-3. Open **PowerShell** as Administrator on your PC and run the commands provided on your GitHub screen:
-   ```powershell
-   # 1. Create a folder for the runner
-   mkdir C:\actions-runner; cd C:\actions-runner
-
-   # 2. Download and extract the runner package (copy exact version from GitHub)
-   Invoke-WebRequest -Uri <DOWNLOAD_URL> -OutFile actions-runner.zip
-   Expand-Archive -Path actions-runner.zip -DestinationPath .
-
-   # 3. Configure the runner:
-   # To run as an automatic Windows Service (starts on boot, runs in background):
-   ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN_FROM_GITHUB> --runasservice
-
-   # OR to run interactively (terminal window):
-   # ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN_FROM_GITHUB>
-   # ./run.cmd
-   ```
-4. **Managing the Windows Service (if configured with `--runasservice`)**:  
-   The runner will automatically run in the background. You can check its status anytime in PowerShell (Admin):
-   ```powershell
-   Get-Service actions.runner.*
-   Start-Service actions.runner.*
-   Stop-Service actions.runner.*
-   ```
-
----
-
-### Step 5: Schedule Exact Runs with cron-job.org (at :10 Past Every Hour)
-
-> **Why cron-job.org?**  
-> GitHub Actions' built-in `schedule:` timer can be delayed by 20 to 45 minutes during busy hours. Blinkit updates clearance stock near the 10-minute mark of every hour. Using the free service [cron-job.org](https://cron-job.org) triggers your runner punctually at minute `:10` (e.g. `1:10`, `2:10`, `3:10`...).
-
-#### 1. Create a GitHub Personal Access Token (PAT)
-1. In GitHub, click your profile icon (top right) $\to$ **Settings** $\to$ **Developer settings** $\to$ **Personal access tokens** $\to$ **Tokens (classic)**.
-2. Click **Generate new token (classic)**.
-3. Name it `cronjob-trigger` and check the **`workflow`** (or `repo`) scope.
-4. Click **Generate token** and copy the token string (`ghp_...`).
-
-#### 2. Create the Job on cron-job.org
-1. Register a free account at **[cron-job.org](https://cron-job.org)**.
-2. Click **Create Cronjob**:
-   - **Title**: `Blinkit Deal Hunter`
-   - **URL**: `https://api.github.com/repos/<your-username>/blinkit-deals/actions/workflows/blinkit-deal-bot.yml/dispatches`
-   - **Request Method**: `POST`
-   - **Schedule**: User-defined / Hourly at minute `10` (`10 * * * *`)
-   - **Timezone**: `Asia/Kolkata` (or your local timezone)
-   - **Headers**:
-     - `Authorization`: `Bearer YOUR_GITHUB_PERSONAL_ACCESS_TOKEN`
-     - `Accept`: `application/vnd.github+json`
-     - `User-Agent`: `cronjob-blinkit`
-   - **Request Body**:
-     ```json
-     {"ref": "main"}
-     ```
-3. Click **Create**.  
-   *Your bot will now trigger punctually at 10 minutes past every hour, scout 50 categories in 35 seconds, and notify you instantly!*
-
----
-
-### Alternative: Running Locally on Your PC (Without GitHub)
-
-If you don't want to use GitHub Actions and prefer running the bot manually from your computer:
-
-1. Clone your repository:
-   ```bash
-   git clone https://github.com/<your-username>/blinkit-deals.git
-   cd blinkit-deals/blinkit-bot
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Open `.env` in any text editor and fill in your `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `BLINKIT_LAT`, and `BLINKIT_LON`.
-4. Run the hunter:
-   ```bash
-   npm start
-   ```
+#### 4. Schedule with cron-job.org
+Create a POST cron-job at `10 * * * *` targeting:
+`https://api.github.com/repos/<your-username>/blinkit-deals/actions/workflows/blinkit-deal-bot.yml/dispatches` with header `Authorization: Bearer <GITHUB_PAT>` and body `{"ref": "main"}`.
 
 ---
 
@@ -263,7 +175,7 @@ If you don't want to use GitHub Actions and prefer running the bot manually from
 
 * **500ms Sequential Pacing**: The browser bookmarklet pauses 500ms between page requests, perfectly matching natural browsing speeds and avoiding IP blocks.
 * **In-Memory Caching (`searchCache` & `catDealsCache`)**: Searching the same keyword or subcategory multiple times in one session retrieves results instantly from memory with **zero network requests**.
-* **Dual-Layer Cache Persistence**: The Telegram bot saves deal history in `data/deals_cache.json` as well as a local backup (`%LOCALAPPDATA%\blinkit_deals_cache.json`) to guarantee no duplicate deal alerts even across runner updates or cleanups.
+* **Dual-Layer Cache Persistence**: The Telegram bot saves deal history in `data/deals_cache.json` as well as a local backup (`%LOCALAPPDATA%\blinkit_deals_cache.json`) to guarantee no duplicate deal alerts even across cleanups.
 * **Early Cancel Recovery**: Cancelling a search or multi-category scan midway preserves all items collected so far with a clear summary badge.
 
 ---
