@@ -184,18 +184,20 @@ Blinkit's inventory and prices depend strictly on your local dark store location
    Invoke-WebRequest -Uri <DOWNLOAD_URL> -OutFile actions-runner.zip
    Expand-Archive -Path actions-runner.zip -DestinationPath .
 
-   # 3. Configure the runner (use defaults when prompted)
-   ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN_FROM_GITHUB>
+   # 3. Configure the runner:
+   # To run as an automatic Windows Service (starts on boot, runs in background):
+   ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN_FROM_GITHUB> --runasservice
 
-   # 4. Start the runner interactively
-   ./run.cmd
+   # OR to run interactively (terminal window):
+   # ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN_FROM_GITHUB>
+   # ./run.cmd
    ```
-4. **Run as a permanent background service (Optional & Recommended)**:  
-   Instead of keeping a PowerShell window open, install the runner as a Windows Service so it automatically starts when your PC boots up:
+4. **Managing the Windows Service (if configured with `--runasservice`)**:  
+   The runner will automatically run in the background. You can check its status anytime in PowerShell (Admin):
    ```powershell
-   cd C:\actions-runner
-   .\svc.cmd install
-   .\svc.cmd start
+   Get-Service actions.runner.*
+   Start-Service actions.runner.*
+   Stop-Service actions.runner.*
    ```
 
 ---
