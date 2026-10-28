@@ -1,10 +1,10 @@
 # ⚡ Blinkit Deal Hunter & Scout Suite (v3.6)
 
-> **Scout hidden clearance deals (60% to 90%+ OFF), search any grocery item by highest discount, or run an automated 24/7 Telegram deal alert bot right from your computer!**
+> **Scout hidden clearance deals (60% to 90%+ OFF), search any grocery item by highest discount, or run an automated 24/7 background Telegram deal bot right from your PC!**
 
 This repository contains two complete tools:
 1. **🌐 1-Click Browser Bookmarklet**: Works directly inside your browser on [blinkit.com](https://blinkit.com) (Desktop & Mobile) — no extensions or app downloads required!
-2. **🤖 Automated Telegram Deal Bot**: Automatically checks Blinkit every hour at 10 minutes past the hour (`:10`), scans 50 major categories for $\ge 80\%$ OFF clearance deals, and sends clean, batched alerts directly to your Telegram chat or channel.
+2. **🤖 Blinkit Deal Sniper (Python Windows Tasker & Telegram Bot)**: Permanently registered in Windows Task Scheduler, runs 100% silently in the background via `pythonw.exe` every hour at `:10`, catches up missed runs on boot, and alerts your Telegram chat or channel.
 
 ---
 
@@ -16,7 +16,7 @@ This repository contains two complete tools:
   - [How to Use the Deal Hunter](#how-to-use-the-deal-hunter)
   - [Bookmarklet Features at a Glance](#bookmarklet-features-at-a-glance)
 - [🤖 Part 2: Automated Telegram Deal Bot (80%+ Clearance)](#-part-2-automated-telegram-deal-bot-80-clearance)
-  - [⚡ Option A: 1-Click Windows Setup Wizard (Recommended)](#-option-a-1-click-windows-setup-wizard-recommended)
+  - [⚡ Option A: Windows Background Tasker (Recommended - Same as BigBasket)](#-option-a-windows-background-tasker-recommended)
   - [⚙️ Option B: Advanced GitHub Actions Setup](#️-option-b-advanced-github-actions-setup)
 - [🛡️ Anti-Rate-Limit & Performance Architecture](#️-anti-rate-limit--performance-architecture)
 - [📄 License](#-license)
@@ -101,43 +101,57 @@ javascript:(function(){const s=document.createElement('script');s.src='https://j
 
 An automated background worker that scans Blinkit every hour, hunts down steep clearance bargains ($\ge 80\%$ OFF), and sends clean, batched alerts directly to your Telegram chat or channel.
 
-### How the Bot Works
-* **Batched Deal Alerts**: Combines deals into clean, compact messages (up to 12 items per message) separated by double line breaks—no photo clutter or notification spam:
-  ```text
-  🛍️ ReeQ Refillable Soap Dispenser (Plastic, Black)
-  💰 ₹299 (MRP: ₹1,499) || 80% OFF
-  🔗 Buy on Blinkit ⚡️ (https://blinkit.com/prn/.../prid/740968)
-  ```
-* **50 Categories Scanned**: Scans all major grocery, personal care, home, electronics, and baby care categories.
-* **Smart Deduplication**: If an item is already reported at the same price, it will not be sent again. If an item remains at the same clearance price for 24 hours, alerts are silenced for **7 days** to avoid repeated noise.
-* **Lighting Fast Execution**: Runs in under **35 seconds**.
+### Deal Format
+Combines deals into clean, compact messages (up to 12 items per message) separated by double line breaks—no photo clutter or notification spam:
+```text
+🛍️ ReeQ Refillable Soap Dispenser (Plastic, Black)
+💰 ₹299 (MRP: ₹1,499) || 80% OFF
+🔗 [Buy on Blinkit ⚡️](https://blinkit.com/prn/reeq-refillable-soap-dispenser-plastic-black/prid/740968)
+```
 
 ---
 
-### ⚡ Option A: 1-Click Windows Setup Wizard (Recommended)
+### ⚡ Option A: Windows Background Tasker (Recommended)
 
-No complicated developer setups, GitHub tokens, or cron-jobs needed! A visual setup wizard runs right in your browser.
+Just like the BigBasket automation, this runs completely natively on your Windows PC with **zero external webhooks, zero runner daemons, and zero open command windows**.
 
-#### 3-Step Setup:
-1. **Download the repository**:  
-   Click the green **Code** button $\to$ **Download ZIP**, and extract it anywhere on your Windows PC.
-2. **Double-click `setup.bat`**:  
-   This automatically installs requirements and opens the visual Setup Wizard in your browser (`http://localhost:4567`).
-3. **Fill in the visual form**:
-   - **Telegram Bot**: Enter your Token (link provided to `@BotFather`) and Chat ID (link provided to `@userinfobot`), then click **🔔 Test Ping** to verify!
-   - **Location**: Click **📍 1-Click Detect My Location** to auto-fill your exact coordinates via browser GPS (or paste any Google Maps link of your home).
-   - **Discount**: Choose your threshold (e.g., 80% OFF).
-   - Click **🚀 Save & Enable Hourly Deal Hunter**.
+#### Key Advantages:
+* **Permanently Saved in Windows Task Scheduler**: Registers directly via PowerShell. Windows manages the schedule across reboots, sleep mode, and shutdowns.
+* **Missed Runs Catch-Up (`StartWhenAvailable`)**: If your PC was turned off during any scheduled scan time (e.g. PC off at 1:10 PM, turned on at 1:35 PM), Windows automatically executes the missed scan as soon as your PC powers on.
+* **Battery / Laptop Safe**: Configured with `AllowStartIfOnBatteries` and `DontStopIfGoingOnBatteries` so it runs reliably even if your laptop is unplugged.
+* **100% Silent (`pythonw.exe`)**: Executes via the background Python worker (`pythonw.exe`). No command prompt window, no terminal, and no browser window ever pops up or disrupts your screen.
+* **Zero RAM Wasted**: Between hourly runs, the bot uses **0 MB RAM**. It wakes up at `:10`, checks 50 categories in ~18 seconds, sends Telegram alerts, and immediately closes.
+* **Smart Deduplication & 7-Day Cooloff**: Won't spam you with duplicate alerts.
 
-#### What Happens Automatically:
-* **Windows Task Scheduler**: Windows automatically registers a background task named `BlinkitDealHunter` to trigger punctually at **`:10`** past every hour.
-* **100% Silent Execution**: Uses a background launcher (`run_silent.vbs`) so **no black command window ever pops up**.
-* **Zero RAM Wasted**: Between hourly runs, the bot uses **0 MB RAM**. It wakes up at `:10`, checks 50 categories in 30 seconds, alerts your Telegram, and exits.
-* **Survives PC Restarts**: Windows automatically keeps the schedule active across reboots.
+#### 1-Click Quick Setup:
+1. Configure your `.env` (or copy `.env.example` to `.env`):
+   ```ini
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRstuvWXyz
+   TELEGRAM_CHAT_ID=1234567890
+   BLINKIT_LAT=13.0388595
+   BLINKIT_LON=77.60125099999999
+   MIN_DISCOUNT=80
+   ```
+2. Double-click **`install_task.bat`** (or run `python blinkit_telegram_sniper.py --install-task`).  
+   *(If `.env` is not set yet, it will prompt you once right in the terminal to fill in your bot details!)*
 
-#### Handy Helper Scripts:
-* **`run-now.bat`**: Double-click anytime to run an instant live scan and watch deals roll in.
-* **`uninstall.bat`**: Double-click anytime to completely remove the scheduled background task in 1 second.
+That's it! Windows Task Scheduler is now configured and active.
+
+#### Handy Batch Shortcuts:
+* **`install_task.bat`**: Registers the permanent hourly schedule in Windows Task Scheduler.
+* **`run_now.bat`**: Runs an immediate live deal scan right now in the console so you can see live scraping output.
+* **`test_telegram.bat`**: Sends a test ping to verify your Telegram Bot connection.
+* **`uninstall_task.bat`**: Removes the background scheduled task with 1 click.
+
+#### Command-Line Options:
+```bash
+python blinkit_telegram_sniper.py --now             # Run scan & send deals to Telegram now
+python blinkit_telegram_sniper.py --test-telegram   # Send a test message to your Telegram bot
+python blinkit_telegram_sniper.py --install-task    # Register hourly schedule in Windows (:10)
+python blinkit_telegram_sniper.py --status-task     # Check Windows Task Scheduler status
+python blinkit_telegram_sniper.py --remove-task     # Remove scheduled task
+python blinkit_telegram_sniper.py --reset-history   # Reset deals tracking database
+```
 
 ---
 
@@ -145,11 +159,7 @@ No complicated developer setups, GitHub tokens, or cron-jobs needed! A visual se
 
 For developers who prefer running the hunter workflow via GitHub Actions orchestration with a self-hosted runner and external webhook triggers:
 
-#### 1. Setup Telegram Credentials & Coordinates
-- Get your bot token from `@BotFather` and your chat ID from `@userinfobot`.
-- Get your coordinates from Google Maps (`BLINKIT_LAT`, `BLINKIT_LON`).
-
-#### 2. Add GitHub Repository Secrets
+#### 1. Add GitHub Repository Secrets
 Under your GitHub repo: **Settings** $\to$ **Secrets and variables** $\to$ **Actions** $\to$ **New repository secret**:
 * `TELEGRAM_BOT_TOKEN`
 * `TELEGRAM_CHAT_ID`
@@ -157,7 +167,7 @@ Under your GitHub repo: **Settings** $\to$ **Secrets and variables** $\to$ **Act
 * `BLINKIT_LON`
 * `MIN_DISCOUNT` *(Optional, default: 80)*
 
-#### 3. Connect Self-Hosted Windows Runner
+#### 2. Connect Self-Hosted Windows Runner
 Under **Settings** $\to$ **Actions** $\to$ **Runners** $\to$ **New runner**, follow the commands:
 ```powershell
 mkdir C:\actions-runner; cd C:\actions-runner
@@ -165,7 +175,7 @@ mkdir C:\actions-runner; cd C:\actions-runner
 ./config.cmd --url https://github.com/<your-username>/blinkit-deals --token <TOKEN> --runasservice
 ```
 
-#### 4. Schedule with cron-job.org
+#### 3. Schedule with cron-job.org
 Create a POST cron-job at `10 * * * *` targeting:
 `https://api.github.com/repos/<your-username>/blinkit-deals/actions/workflows/blinkit-deal-bot.yml/dispatches` with header `Authorization: Bearer <GITHUB_PAT>` and body `{"ref": "main"}`.
 
@@ -175,7 +185,7 @@ Create a POST cron-job at `10 * * * *` targeting:
 
 * **500ms Sequential Pacing**: The browser bookmarklet pauses 500ms between page requests, perfectly matching natural browsing speeds and avoiding IP blocks.
 * **In-Memory Caching (`searchCache` & `catDealsCache`)**: Searching the same keyword or subcategory multiple times in one session retrieves results instantly from memory with **zero network requests**.
-* **Dual-Layer Cache Persistence**: The Telegram bot saves deal history in `data/deals_cache.json` as well as a local backup (`%LOCALAPPDATA%\blinkit_deals_cache.json`) to guarantee no duplicate deal alerts even across cleanups.
+* **Dual-Layer Cache Persistence**: Saves deal history in `blinkit_deals_history.json` to guarantee no duplicate deal alerts.
 * **Early Cancel Recovery**: Cancelling a search or multi-category scan midway preserves all items collected so far with a clear summary badge.
 
 ---
