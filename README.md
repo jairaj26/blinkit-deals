@@ -71,8 +71,8 @@ javascript:(function(){const s=document.createElement('script');s.src='https://j
 ### How to Use the Deal Hunter
 
 1. **Open the Drawer**: Click or tap the floating green button at the bottom-right of the Blinkit screen.
-2. **⚡ Mega Scout (50 Categories)**: Click **"Scan All Deals"** to fetch Page 1 across 50 core product categories sorted strictly by highest discount.
-3. **🎯 1-Click Popular Chips**: Tap any chip (`Atta`, `Rice`, `Dal`, `Ghee`, `Sweets`, `Chocolate`, `Snacks`, `Dry Fruits`, etc.) to instantly find the biggest discounts for that keyword.
+2. **⚡ Mega Scout (25 Categories)**: Click **"Scan All Deals"** to fetch Page 1 across 25 main product categories sorted strictly by highest discount with automatic rate-limit backoff and live retry.
+3. **🎯 1-Click Popular Chips & Search**: Tap any chip or search any keyword to fetch at least 2 full pages of top discount deals.
 4. **Category Multi-Select**: Pick any category to automatically select its subcategories (or customize your selection) and view all top deals aggregated together.
 5. **Quick Filters**: Use the top filter pills to isolate items with **25%+**, **40%+**, or deep **60%+** clearance discounts, or hide out-of-stock products.
 6. **Export**: On desktop, click **Export CSV** to download all scraped deals into a spreadsheet.
@@ -84,7 +84,7 @@ javascript:(function(){const s=document.createElement('script');s.src='https://j
 | Feature | Details |
 | :--- | :--- |
 | **Floating Launcher** | Discreet green circle button floating above the cart button with minimize and close controls |
-| **⚡ 50-Category Mega Scout** | 1-Click scan fetching Page 1 of 50 essential categories, deduplicating and sorting all top deals |
+| **⚡ 25-Category Mega Scout** | 1-Click scan fetching Page 1 of 25 main categories with live retry recovery, deduplicating and sorting all top deals |
 | **Category Multi-Select** | Select a category to auto-select all subcategories; easily toggle individual subcategories |
 | **1-Click Popular Chips** | 15 instant search pills (`Atta`, `Rice`, `Dal`, `Ghee`, `Sweets`, `Chocolate`, `Dry Fruits`, etc.) |
 | **Server-Side Sort & Cutoff** | Fetches backend results sorted by `discount_desc` with an automatic 59% early-exit cutoff |

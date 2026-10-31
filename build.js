@@ -386,7 +386,7 @@ async function build() {
         <span class="tag-pill">🟢 Light-Green Launcher</span>
         <span class="tag-pill">⚡ Server-Side Sort</span>
         <span class="tag-pill">🛑 59% Early-Exit Cutoff</span>
-        <span class="tag-pill">⚡ 50-Category Mega Scout</span>
+        <span class="tag-pill">⚡ 25-Category Mega Scout</span>
         <span class="tag-pill">🎯 15 1-Click Popular Chips</span>
         <span class="tag-pill">📱 Official Mobile Loader</span>
         <span class="tag-pill">🖼️ 5/3 Col Responsive Grid</span>
@@ -443,8 +443,8 @@ async function build() {
     <!-- Feature Highlights -->
     <div class="features-grid">
       <div class="feature-card">
-        <h4>⚡ 50-Category Mega Scout</h4>
-        <p>1-Click button fetching Page 1 of 50 essential categories, deduplicating and sorting all top deals by discount.</p>
+        <h4>⚡ 25-Category Mega Scout</h4>
+        <p>1-Click button fetching Page 1 of 25 essential categories with automatic 429 rate-limit backoff, live retry recovery &amp; instant results display.</p>
       </div>
       <div class="feature-card">
         <h4>🎯 15 1-Click Popular Chips</h4>
